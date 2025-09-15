@@ -1,7 +1,7 @@
 name = "RelationshipMatrices"
 uuid = "d4d45922-7dca-4708-ac5a-a6dbb0551829"
 authors = ["Xijiang Yu <xijiang@users.noreply.github.com>"]
-version = "0.1.2"
+version = "0.1.3"
 description = "Efficient computation of relationship matrices for quantitative genetics in Julia."
 license = "MIT"
 homepage = "https://juliabng.github.io/RelationshipMatrices.jl"
