@@ -1,0 +1,32 @@
+# Julia / General
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+*.jl.*.mem
+*.jl.prof
+*.jl.*.prof
+
+# Coverage & profiling outputs
+coverage/
+*.lcov
+
+# Artifacts / builds
+build/
+deps/
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# OS / misc
+.DS_Store
+Thumbs.db
+*~
+*.bak
+
+# Jupyter / Pluto
+.ipynb_checkpoints/
+*.jlpluto
+
+# Manifest (optional to ignore for libraries)
+Manifest.toml
