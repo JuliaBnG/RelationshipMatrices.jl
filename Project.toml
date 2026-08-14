@@ -4,8 +4,8 @@ keywords = ["genomics", "relationship-matrix", "quantitative-genetics", "pedigre
 license = "MIT"
 authors = ["Xijiang Yu <xijiang@users.noreply.github.com>"]
 description = "Efficient computation of relationship matrices for quantitative genetics in Julia."
-docs = "https://juliabng.github.io/RelationshipMatrices.jl"
-homepage = "https://juliabng.github.io/RelationshipMatrices.jl"
+docs = "https://xijiang.org/JuliaBnG/RelationshipMatrices/"
+homepage = "https://xijiang.org/JuliaBnG/RelationshipMatrices/"
 repository = "https://github.com/JuliaBnG/RelationshipMatrices.jl"
 version = "0.1.5"
 

@@ -17,14 +17,8 @@ jobs:
         uses: julia-actions/setup-julia@v2
         with:
           version: '1.11'
-      - name: Install dependencies
-        run: julia --project=docs -e 'using Pkg; Pkg.instantiate()'
-      - name: Build docs
-        run: julia --project=docs docs/make.jl
-      - name: Deploy to GitHub Pages
-        uses: julia-actions/julia-docdeploy@v1
+      - uses: julia-actions/julia-docdeploy@v1
         with:
-          branch: gh-pages
-          folder: docs/build
+          install-package: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
