@@ -4,6 +4,7 @@
 
 ```julia
 using RelationshipMatrices
+using Statistics
 
 # Simulate genotype data
 gt = rand(Int8[0, 1, 2], 100, 20)
@@ -21,8 +22,8 @@ G2 = grm(gt, vec(p))
 ```julia
 using DataFrames, RelationshipMatrices
 
-ped = DataFrame(id=1:5, sire=[0,0,1,1,3], dam=[0,0,0,2,4])
+ped = DataFrame(sire=[0,0,1,1,3], dam=[0,0,0,2,4])
 A = nrm(ped)
-Ai = Ainv(ped)
-K = kinship(ped)
+Ai = ainv(ped)
+k = kinship(ped, 3, 4)
 ```

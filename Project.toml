@@ -7,7 +7,7 @@ description = "Efficient computation of relationship matrices for quantitative g
 docs = "https://juliabng.github.io/RelationshipMatrices.jl"
 homepage = "https://juliabng.github.io/RelationshipMatrices.jl"
 repository = "https://github.com/JuliaBnG/RelationshipMatrices.jl"
-version = "0.1.4"
+version = "0.1.5"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"

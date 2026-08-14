@@ -7,48 +7,55 @@ Efficient computation of relationship matrices for quantitative genetics in Juli
 
 ## Features
 
-- Genomic Relationship Matrix (GRM) calculation
-- Pedigree-based relationship matrices (A, A-inverse, kinship, etc.)
-- Fast, memory-aware, and parallelized routines
-- Designed for large-scale genotype and pedigree data
+- **Genomic Relationship Matrix (GRM)**: Fast, parallelized calculation.
+- **Pedigree-based Relationship Matrices**: Numerator relationship matrix ($A$), diagonals ($1 + F_i$), and $A^{-1}$ via Henderson's sparse decomposition.
+- **Pairwise Kinship**: Direct memoized calculation for individual pairs.
+- **Memory-aware & Parallelized**: Efficient integer arithmetic and multi-threaded execution.
 
 ## Installation
-
-```julia
-pkg> add path/to/RelationshipMatrices
-```
-
-Or, if registered:
 
 ```julia
 pkg> add RelationshipMatrices
 ```
 
+## Pedigree Data Conventions
+
+Pedigree functions expect a `DataFrame` containing `:sire` and `:dam` columns:
+- **Row index is ID**: Row `i` represents individual `i` (from `1` to `N`).
+- **`0` means unknown/missing parent**.
+- **Parents must precede offspring**: `sire < i` and `dam < i`.
+
 ## Usage
 
 ```julia
-using RelationshipMatrices
+using DataFrames, RelationshipMatrices
 
-# Example: Compute GRM from genotype matrix `gt` and allele frequencies `p`
-G = grm(gt, p)
+# 1. Pedigree-based Relationship Matrices
+ped = DataFrame(
+    sire = [0, 0, 1, 1, 3],
+    dam  = [0, 0, 0, 2, 4],
+)
 
-# Or, compute GRM with allele frequencies estimated from `gt`
-G = grm(gt)
+A    = nrm(ped)          # Full A matrix
+A_i  = ainv(ped)         # Sparse A inverse (also aliased as Ainv)
+diag = nrm_diag(ped)     # 1 + F_i diagonals
+k_12 = kinship(ped, 1, 2)# Kinship between individuals 1 and 2
+
+# 2. Genomic Relationship Matrix (GRM)
+# gt is an (nlc × nid) Matrix{Int8} coded 0/1/2
+G = grm(gt)              # With allele frequencies estimated from gt
+G = grm(gt, p)           # With user-supplied allele frequency vector p
 ```
-
-- `gt` should be a `Matrix{Int8}` of size (loci × individuals)
-- `p` should be a `Vector{Float64}` of allele frequencies (length = number of loci)
 
 ## Functions
 
-- `grm(gt, p)`: Genomic relationship matrix from genotypes and allele frequencies
-- `grm(gt)`: GRM with allele frequencies estimated from `gt`
-- `ainv(ped)`: Inverse numerator relationship matrix from pedigree
-- `kinship(ped)`: Kinship matrix from pedigree
-
-## Documentation
-
-See the `docs/` folder for more details and examples.
+- `nrm(ped; T=Float64)`: Full numerator relationship matrix $A$.
+- `nrm_diag(ped; m=-1)`: Diagonals of $A$ ($1 + F_i$).
+- `ainv(ped; verbose=false)`: Inverse numerator relationship matrix $A^{-1}$ (sparse). `Ainv` is provided as an alias.
+- `kinship(ped, i, j)` / `kinship(ped, pairs)`: Kinship coefficients between individuals or list of pairs.
+- `grm(gt, p; T=Float64)`: Genomic relationship matrix from genotypes and allele frequencies.
+- `grm(gt; T=Float64)`: GRM with allele frequencies estimated from `gt`.
+- `validate_pedigree(ped)`: Validates pedigree structure and ordering.
 
 ## License
 MIT License. See `LICENSE` file.

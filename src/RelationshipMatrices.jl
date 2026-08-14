@@ -5,6 +5,7 @@ using LinearAlgebra
 using SparseArrays
 using Statistics
 
+include("pedigree.jl")
 include("nrm.jl")
 include("nrm-diag.jl")
 include("kinship.jl")
@@ -12,6 +13,6 @@ include("ainv.jl")
 include("grm.jl")
 include("irm.jl")
 
-export nrm, nrm_diag, Ainv, grm, kinship
+export nrm, nrm_diag, Ainv, ainv, grm, kinship, validate_pedigree
 
 end # module RelationshipMatrices
