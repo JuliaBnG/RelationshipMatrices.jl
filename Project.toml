@@ -2,12 +2,12 @@ name = "RelationshipMatrices"
 uuid = "d4d45922-7dca-4708-ac5a-a6dbb0551829"
 keywords = ["genomics", "relationship-matrix", "quantitative-genetics", "pedigree", "GRM"]
 license = "MIT"
+version = "0.2.0"
 authors = ["Xijiang Yu <xijiang@users.noreply.github.com>"]
 description = "Efficient computation of relationship matrices for quantitative genetics in Julia."
 docs = "https://xijiang.org/JuliaBnG/RelationshipMatrices/"
 homepage = "https://xijiang.org/JuliaBnG/RelationshipMatrices/"
 repository = "https://github.com/JuliaBnG/RelationshipMatrices.jl"
-version = "0.1.5"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -15,12 +15,20 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
+[weakdeps]
+BnGStructs = "764f5799-4fa8-443f-b488-b719b6ff37e3"
+
+[extensions]
+RelationshipMatricesBnGStructsExt = "BnGStructs"
+
 [compat]
+BnGStructs = "0.2"
 DataFrames = "1"
 julia = "1.10"
 
 [extras]
+BnGStructs = "764f5799-4fa8-443f-b488-b719b6ff37e3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "BnGStructs"]

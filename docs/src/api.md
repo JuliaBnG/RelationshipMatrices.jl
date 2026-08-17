@@ -1,5 +1,5 @@
 # API Reference
 
 ```@autodocs
-Modules = [RelationshipMatrices]
+Modules = [RelationshipMatrices, BnGStructsExt]
 ```

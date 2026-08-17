@@ -3,7 +3,8 @@
 Efficient computation of relationship matrices for quantitative genetics in Julia.
 
 ## Features
-- Genomic Relationship Matrix (GRM) calculation
+- Genomic Relationship Matrix (GRM) calculation from dense or packed
+  `BnGStructs` genotypes
 - Pedigree-based relationship matrices (A, A-inverse, kinship, diagonals)
 - Fast, memory-aware, and parallelized routines
 - Designed for large-scale genotype and pedigree data
@@ -36,6 +37,27 @@ G = grm(gt)
 G = grm(gt, p)
 ```
 
+## Packed BnGStructs genotypes
+
+`BnGStructs` is an optional dependency. Install it to compute GRMs directly
+from packed haplotypes or genotypes:
+
+```julia
+pkg> add BnGStructs
+```
+
+```julia
+using BnGStructs, RelationshipMatrices
+
+G = grm(haplotype)
+G = grm(haplotype; maf = 0.01)
+G = grm(haplotype, variant_map)
+G = grm(haplotype, locus_set; p = allele_frequencies)
+```
+
+`grm(::Haplotype)` uses packed-bit popcounts. `grm(::Genotype)` converts
+to the corresponding haplotype layout before calculation.
+
 ## Functions
 - `nrm(ped; T=Float64)`: Full numerator relationship matrix $A$
 - `nrm_diag(ped; m=-1)`: Diagonals of $A$ ($1 + F_i$)
@@ -43,4 +65,8 @@ G = grm(gt, p)
 - `kinship(ped, i, j)`: Pairwise kinship between individuals `i` and `j`
 - `grm(gt, p; T=Float64)`: Genomic relationship matrix from genotypes and allele frequencies
 - `grm(gt; T=Float64)`: GRM with allele frequencies estimated from `gt`
+- `grm(h::Haplotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: Packed
+  bit-parallel GRM when `BnGStructs` is installed
+- `grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: GRM from
+  a `BnGStructs.Genotype`
 - `validate_pedigree(ped)`: Pedigree validator

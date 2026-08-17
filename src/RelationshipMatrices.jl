@@ -11,6 +11,7 @@ include("nrm-diag.jl")
 include("kinship.jl")
 include("ainv.jl")
 include("grm.jl")
+include("grm-bits.jl")
 include("irm.jl")
 
 export nrm, nrm_diag, Ainv, ainv, grm, kinship, validate_pedigree

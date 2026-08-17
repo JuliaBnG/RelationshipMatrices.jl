@@ -1,6 +1,7 @@
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 BnGStructs = "764f5799-4fa8-443f-b488-b719b6ff37e3"
-Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 RelationshipMatrices = "d4d45922-7dca-4708-ac5a-a6dbb0551829"
 
 [sources]

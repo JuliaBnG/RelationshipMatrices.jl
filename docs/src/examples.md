@@ -17,6 +17,20 @@ p = mean(gt, dims=2) ./ 2
 G2 = grm(gt, vec(p))
 ```
 
+## Compute a Packed GRM with BnGStructs
+
+```julia
+using BnGStructs, RelationshipMatrices
+
+# `hap` is a BnGStructs.Haplotype with two haplotypes per individual.
+# This uses the packed-bit implementation without materializing dosages.
+G = grm(hap)
+
+# Filter loci by minor allele frequency or a supplied panel.
+G_maf = grm(hap; maf = 0.01)
+G_panel = grm(hap, locus_set; p = allele_frequencies)
+```
+
 ## Compute Pedigree-based Matrices
 
 ```julia

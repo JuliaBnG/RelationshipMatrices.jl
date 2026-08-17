@@ -18,8 +18,10 @@ function grm(gt::AbstractMatrix{Int8}, p::AbstractVector{Float64}; T::Type{<:Abs
     v = 0 .< p .< 1 # polymorphic loci
     nlc = sum(v)  # number of polymorphic loci
     nlc == 0 && error("No polymorphic loci found (0 < p < 1)")
-    t = view(gt, v, :) # Filtered genotype matrix view
-    q = view(p, v)     # Filtered allele frequencies view
+
+    # Materialize polymorphic loci once into a contiguous Matrix{Int8} (prevents nested SubArray allocations)
+    t = Matrix{Int8}(gt[v, :])
+    q = Vector{Float64}(p[v])
     d = T(2 * sum((1 .- q) .* q))
     nid = size(gt, 2)
 
@@ -32,16 +34,24 @@ function grm(gt::AbstractMatrix{Int8}, p::AbstractVector{Float64}; T::Type{<:Abs
     G = zeros(T, nid, nid)
     c1 = zeros(T, nid)
     Threads.@threads for i in 1:nid
-        # Use column view without creating vector copies
-        c1[i] = T(2 * dot(view(t, :, i), q))
+        off_i = (i - 1) * nlc
+        acc_c1 = 0.0
+        @inbounds @simd for k in 1:nlc
+            acc_c1 += Float64(t[off_i + k]) * q[k]
+        end
+        c1[i] = T(2 * acc_c1)
     end
     c2 = T(4 * dot(q, q))
 
     Threads.@threads for j in 1:nid
+        off_j = (j - 1) * nlc
         for i in 1:j
-            # Accumulate in Int32 and convert to T
-            prod_val = inner_product(view(t, :, i), view(t, :, j))
-            G[i, j] = T(prod_val)
+            off_i = (i - 1) * nlc
+            acc = Int32(0)
+            @inbounds @simd for k in 1:nlc
+                acc += Int32(t[off_i + k]) * Int32(t[off_j + k])
+            end
+            G[i, j] = T(acc)
             G[j, i] = G[i, j]
         end
     end

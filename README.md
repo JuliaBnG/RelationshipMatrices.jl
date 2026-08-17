@@ -7,7 +7,8 @@ Efficient computation of relationship matrices for quantitative genetics in Juli
 
 ## Features
 
-- **Genomic Relationship Matrix (GRM)**: Fast, parallelized calculation.
+- **Genomic Relationship Matrix (GRM)**: Fast, parallelized calculation
+  from dense genotypes or packed `BnGStructs` haplotypes and genotypes.
 - **Pedigree-based Relationship Matrices**: Numerator relationship matrix ($A$), diagonals ($1 + F_i$), and $A^{-1}$ via Henderson's sparse decomposition.
 - **Pairwise Kinship**: Direct memoized calculation for individual pairs.
 - **Memory-aware & Parallelized**: Efficient integer arithmetic and multi-threaded execution.
@@ -47,6 +48,28 @@ G = grm(gt)              # With allele frequencies estimated from gt
 G = grm(gt, p)           # With user-supplied allele frequency vector p
 ```
 
+### Packed BnGStructs genotypes
+
+Installing `BnGStructs` enables direct GRM calculation on its packed
+`Haplotype` and `Genotype` representations, without expanding them to a
+dense dosage matrix:
+
+```julia
+pkg> add BnGStructs
+```
+
+```julia
+using BnGStructs, RelationshipMatrices
+
+G = grm(haplotype)
+G = grm(haplotype; maf = 0.01)
+G = grm(haplotype, variant_map)
+G = grm(haplotype, locus_set; p = allele_frequencies)
+```
+
+The `Haplotype` method uses packed-bit popcounts. `Genotype` methods
+convert to the corresponding haplotype layout before calculation.
+
 ## Functions
 
 - `nrm(ped; T=Float64)`: Full numerator relationship matrix $A$.
@@ -55,6 +78,10 @@ G = grm(gt, p)           # With user-supplied allele frequency vector p
 - `kinship(ped, i, j)` / `kinship(ped, pairs)`: Kinship coefficients between individuals or list of pairs.
 - `grm(gt, p; T=Float64)`: Genomic relationship matrix from genotypes and allele frequencies.
 - `grm(gt; T=Float64)`: GRM with allele frequencies estimated from `gt`.
+- `grm(h::Haplotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: Packed
+  bit-parallel GRM when `BnGStructs` is installed.
+- `grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: GRM from
+  a `BnGStructs.Genotype`.
 - `validate_pedigree(ped)`: Validates pedigree structure and ordering.
 
 ## License
