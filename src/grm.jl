@@ -167,3 +167,48 @@ function grm(
     p = vec(mean(gt, dims = 2) ./ 2)
     return grm(gt, p; method = method, delta = delta, T = T)
 end
+
+"""
+    grm(
+        alleles::AbstractMatrix{<:Unsigned};
+        p = nothing,
+        method::Symbol = :vanraden1,
+        delta::Real = 0.0,
+        T::Type{<:AbstractFloat} = Float64,
+    )
+
+Calculate a genomic relationship matrix from encoded founder alleles. Rows are
+loci and adjacent columns are the two haplotypes of one diploid individual.
+The least-significant bit stores the observed SNP allele (`0` or `1`); higher
+bits may store the founder-allele identity used by [`irm`](@ref).
+
+The encoded haplotypes are decoded to 0/1/2 dosages and passed to the dense
+GRM implementation. Supply `p` to use external allele frequencies; otherwise
+they are estimated from the decoded dosages.
+"""
+function grm(
+    alleles::AbstractMatrix{<:Unsigned};
+    p::Union{Nothing,AbstractVector{<:Real}} = nothing,
+    method::Symbol = :vanraden1,
+    delta::Real = 0.0,
+    T::Type{<:AbstractFloat} = Float64,
+)
+    nlc, nhp = size(alleles)
+    iseven(nhp) ||
+        throw(ArgumentError("encoded alleles must have an even number of haplotype columns"))
+    nid = nhp ÷ 2
+    gt = Matrix{Int8}(undef, nlc, nid)
+
+    Threads.@threads for i in 1:nid
+        a, b = 2i - 1, 2i
+        @inbounds @simd for l in 1:nlc
+            gt[l, i] = Int8((alleles[l, a] & one(eltype(alleles))) +
+                             (alleles[l, b] & one(eltype(alleles))))
+        end
+    end
+
+    if isnothing(p)
+        return grm(gt; method = method, delta = delta, T = T)
+    end
+    return grm(gt, Float64.(p); method = method, delta = delta, T = T)
+end

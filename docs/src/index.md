@@ -40,6 +40,13 @@ Hinv = hinv(ped, G, ids)
 # gt: (nlc × nid) Matrix{Int8}, p: Vector{Float64}
 G = grm(gt)
 G = grm(gt, p)
+
+# Locus-level IBD from unique founder-allele labels.
+# `founder_alleles` is (loci × 2*individuals), with adjacent columns paired.
+I = irm(founder_alleles)
+
+# For UInt32/UInt64 founder codes, `grm` decodes bit 0 as the SNP allele.
+G_from_codes = grm(founder_alleles)
 ```
 
 ## Packed BnGStructs genotypes
@@ -79,4 +86,9 @@ to the corresponding haplotype layout before calculation.
   bit-parallel GRM when `BnGStructs` is installed
 - `grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: GRM from
   a `BnGStructs.Genotype`
+- `irm(alleles::AbstractMatrix{<:Unsigned}; T=Float64)`: Realized
+  locus-level IBD relationship matrix from unsigned founder-allele labels
+- `irm_locus(alleles; T=Float64)`: Alias for `irm`
+- `grm(alleles::AbstractMatrix{<:Unsigned}; ...)`: GRM from encoded founder
+  alleles, with the observed SNP allele in bit 0
 - `validate_pedigree(ped)`: Pedigree validator

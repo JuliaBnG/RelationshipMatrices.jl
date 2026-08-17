@@ -2,6 +2,14 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.4.0] - 2026-08-17
+
+### Added
+- `irm` / `irm_locus` for realized locus-level IBD relationships from unique
+  founder-allele labels.
+- `grm` dispatch for unsigned encoded founder alleles, decoding the observed
+  SNP allele from bit 0.
+
 ## [v0.3.0] - 2026-08-17
 
 ### Added

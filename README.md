@@ -11,6 +11,8 @@ Efficient computation of relationship matrices for quantitative genetics in Juli
   from dense genotypes or packed `BnGStructs` haplotypes and genotypes.
 - **Pedigree-based Relationship Matrices**: Numerator relationship matrix ($A$), diagonals ($1 + F_i$), and $A^{-1}$ via Henderson's sparse decomposition.
 - **Pairwise Kinship**: Direct memoized calculation for individual pairs.
+- **Realized IBD**: Locus-level relationships from uniquely labelled founder
+  alleles.
 - **Memory-aware & Parallelized**: Efficient integer arithmetic and multi-threaded execution.
 
 ## Installation
@@ -46,6 +48,14 @@ k_12 = kinship(ped, 1, 2)# Kinship between individuals 1 and 2
 # gt is an (nlc × nid) Matrix{Int8} coded 0/1/2
 G = grm(gt)              # With allele frequencies estimated from gt
 G = grm(gt, p)           # With user-supplied allele frequency vector p
+
+# 3. Locus-level identity by descent
+# founder_alleles is (loci × 2*individuals), with adjacent columns paired
+I = irm(founder_alleles)
+
+# `UInt32`/`UInt64` founder codes can also feed `grm`:
+# the low bit is the observed SNP allele; higher bits retain allele identity.
+G_from_codes = grm(founder_alleles)
 ```
 
 ### Packed BnGStructs genotypes
@@ -82,6 +92,11 @@ convert to the corresponding haplotype layout before calculation.
 - `grm(gt; method=:vanraden1, delta=0.0, T=Float64)`: GRM with allele frequencies estimated from `gt`.
 - `grm(h::Haplotype; p=nothing, maf=0.0, loci=nothing, delta=0.0, T=Float64)`: Packed bit-parallel GRM via 4-way CPU popcount when `BnGStructs` is loaded.
 - `grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, delta=0.0, T=Float64)`: GRM from a `BnGStructs.Genotype`.
+- `irm(alleles::AbstractMatrix{<:Unsigned}; T=Float64)`: Realized
+  locus-level IBD relationship matrix from unsigned founder-allele labels.
+- `irm_locus(alleles; T=Float64)`: Alias for `irm`.
+- `grm(alleles::AbstractMatrix{<:Unsigned}; ...)`: GRM from encoded founder
+  alleles, whose low bit is the observed SNP allele.
 - `validate_pedigree(ped)`: Validates pedigree structure and ordering.
 
 ## License

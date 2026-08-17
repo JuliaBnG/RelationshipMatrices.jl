@@ -252,4 +252,46 @@ using Test
         @test_throws ErrorException grm(gt, p; method=:unknown_model)
         @test_throws ErrorException grm(gt, p; method=:unknown_model)
     end
+
+    @testset "Locus-level IBD relationship matrix" begin
+        # Loci × haplotypes; adjacent haplotypes belong to one individual.
+        alleles = UInt32[
+            1 2 1 3
+            4 5 4 5
+            6 7 8 9
+        ]
+        I = irm(alleles)
+        expected = [
+            1.0 0.5
+            0.5 1.0
+        ]
+        @test I ≈ expected
+        @test irm_locus(alleles) == I
+        @test eltype(irm(alleles; T = Float32)) == Float32
+        @test_throws ArgumentError irm(zeros(UInt32, 0, 2))
+        @test_throws ArgumentError irm(zeros(UInt32, 1, 3))
+        @test_throws MethodError irm(zeros(Int, 1, 2))
+    end
+
+    @testset "GRM from encoded founder alleles" begin
+        # The low bit contains the observed allele; high bits retain ancestry.
+        alleles = UInt32[
+            0x10 0x21 0x30 0x41
+            0x12 0x23 0x32 0x43
+            0x14 0x25 0x34 0x45
+        ]
+        dosages = Int8[
+            1 1
+            1 1
+            1 1
+        ]
+        # Add a polymorphic locus so the VanRaden denominator is nonzero.
+        alleles = vcat(alleles, UInt32[0x10 0x21 0x31 0x40])
+        dosages = vcat(dosages, Int8[1 1])
+
+        @test grm(alleles) ≈ grm(dosages)
+        p = [0.5, 0.5, 0.5, 0.5]
+        @test grm(alleles; p = p) ≈ grm(dosages, p)
+        @test_throws ArgumentError grm(zeros(UInt32, 1, 3))
+    end
 end
