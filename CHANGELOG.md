@@ -7,7 +7,7 @@ All notable changes to `RelationshipMatrices.jl` will be documented in this file
 ### Added
 - **Bit-Parallel Genomic Relationship Matrix (GRM)**:
   - Direct calculation of GRM from `BnGStructs.Haplotype` and `BnGStructs.Genotype` via `RelationshipMatricesBnGStructsExt` extension.
-  - Implements 4-way CPU hardware popcount per pair, yielding **6.8x speedup** and **5.1x less memory** on 50k SNP panels.
+  - Implements 4-way CPU hardware popcount per pair.
   - Native support for `LocusSet` panel filtering, `VariantMap` frequency ingestion, and `maf` thresholding.
 - **Pedigree Validation**:
   - Added `validate_pedigree(ped; strict=true)` to check parent ordering, bounds, non-self-parenting, and required columns.
@@ -17,8 +17,8 @@ All notable changes to `RelationshipMatrices.jl` will be documented in this file
   - `nrm(ped; T=Float64)` and `grm(gt; T=Float64)` now explicitly accept element type `T`.
 
 ### Optimized
-- **Zero-Allocation Contiguous GRM Loop**:
-  - Eliminated nested `SubArray` column allocations, speeding up `grm(::Matrix{Int8})` by **248x**.
+- **Contiguous GRM Loop**:
+  - Eliminated nested `SubArray` column allocations in the pairwise loop.
 - **Henderson's 1-Pass Direct Inversion (`ainv`)**:
   - Replaced two-stage $L_i' D_i L_i$ matrix multiplication with direct $3 \times 3$ triplet accumulation into preallocated sparse arrays.
 - **Pedigree Indexing**:
