@@ -73,15 +73,15 @@ convert to the corresponding haplotype layout before calculation.
 ## Functions
 
 - `nrm(ped; T=Float64)`: Full numerator relationship matrix $A$.
+- `nrm(ped, ids; T=Float64)`: Submatrix $A_{22}$ for a subset of individuals using Colleau's (2002) indirect algorithm.
 - `nrm_diag(ped; m=-1)`: Diagonals of $A$ ($1 + F_i$).
 - `ainv(ped; verbose=false)`: Inverse numerator relationship matrix $A^{-1}$ (sparse). `Ainv` is provided as an alias.
+- `hinv(ped, G, genotyped_ids; delta=0.0, T=Float64)`: Combined pedigree-genomic inverse relationship matrix $H^{-1}$ for single-step GBLUP. `Hinv` is provided as an alias.
 - `kinship(ped, i, j)` / `kinship(ped, pairs)`: Kinship coefficients between individuals or list of pairs.
-- `grm(gt, p; T=Float64)`: Genomic relationship matrix from genotypes and allele frequencies.
-- `grm(gt; T=Float64)`: GRM with allele frequencies estimated from `gt`.
-- `grm(h::Haplotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: Packed
-  bit-parallel GRM when `BnGStructs` is installed.
-- `grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: GRM from
-  a `BnGStructs.Genotype`.
+- `grm(gt, p; method=:vanraden1, delta=0.0, T=Float64)`: Genomic relationship matrix supporting VanRaden Method 1, Method 2, dominance relationship, and $\delta$ blending.
+- `grm(gt; method=:vanraden1, delta=0.0, T=Float64)`: GRM with allele frequencies estimated from `gt`.
+- `grm(h::Haplotype; p=nothing, maf=0.0, loci=nothing, delta=0.0, T=Float64)`: Packed bit-parallel GRM via 4-way CPU popcount when `BnGStructs` is loaded.
+- `grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, delta=0.0, T=Float64)`: GRM from a `BnGStructs.Genotype`.
 - `validate_pedigree(ped)`: Validates pedigree structure and ordering.
 
 ## License

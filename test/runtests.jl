@@ -154,5 +154,102 @@ using Test
         v_maf = (p .> 0.1) .& (p .< 0.9)
         G_ref_maf = grm(gt[v_maf, :], p[v_maf])
         @test isapprox(G_maf, G_ref_maf; rtol=1e-10, atol=1e-10)
+
+        # 7. Blending delta
+        G_blend = grm(hap; delta=0.05)
+        @test isapprox(G_blend, 0.95 .* G_bit .+ 0.05 .* Matrix(I, nid, nid); rtol=1e-10, atol=1e-10)
+    end
+
+    @testset "Colleau Submatrix A22 and ssGBLUP Hinv" begin
+        # 7-individual pedigree
+        ped = DataFrame(
+            id = 1:7,
+            sire = [0, 0, 1, 1, 3, 1, 5],
+            dam  = [0, 0, 0, 2, 4, 4, 6],
+        )
+        A_full = nrm(ped)
+
+        # 1. Colleau submatrix extraction
+        sub_ids = [2, 5, 7]
+        A22_colleau = nrm(ped, sub_ids)
+        @test isapprox(A22_colleau, A_full[sub_ids, sub_ids]; rtol=1e-10, atol=1e-10)
+
+        # Submatrix of all IDs equals full A
+        @test isapprox(nrm(ped, 1:7), A_full; rtol=1e-10, atol=1e-10)
+
+        # 2. Single-step Hinv
+        # Create a synthetic positive-definite G for genotyped individuals
+        n2 = length(sub_ids)
+        G22 = A22_colleau .+ 0.1 .* Matrix(I, n2, n2)
+
+        H_i = hinv(ped, G22, sub_ids)
+        @test size(H_i) == (7, 7)
+        @test Hinv(ped, G22, sub_ids) == H_i  # Test alias
+        @test_throws ArgumentError hinv(ped, G22, [2, 2, 7])
+
+        # Verify Hinv structure against dense textbook formula
+        A_inv_dense = inv(A_full)
+        A22_inv = inv(A22_colleau)
+        G_inv = inv(G22)
+        H_inv_expected = copy(A_inv_dense)
+        H_inv_expected[sub_ids, sub_ids] .+= (G_inv .- A22_inv)
+
+        @test isapprox(Matrix(H_i), H_inv_expected; rtol=1e-10, atol=1e-10)
+
+        # 3. Blended Hinv
+        H_i_blend = hinv(ped, G22, sub_ids; delta=0.05)
+        G22_blend = 0.95 .* G22 .+ 0.05 .* A22_colleau
+        H_inv_blend_expected = copy(A_inv_dense)
+        H_inv_blend_expected[sub_ids, sub_ids] .+= (inv(G22_blend) .- A22_inv)
+        @test isapprox(Matrix(H_i_blend), H_inv_blend_expected; rtol=1e-10, atol=1e-10)
+    end
+
+    @testset "GRM Model Variants (Method 2, Dominance, Blending)" begin
+        nlc, nid = 100, 20
+        gt = rand(0:2, nlc, nid) .|> Int8
+        p = vec(mean(gt, dims=2) ./ 2)
+
+        # 1. VanRaden Method 2
+        G_m2 = grm(gt, p; method=:vanraden2)
+        @test size(G_m2) == (nid, nid)
+        @test issymmetric(G_m2)
+
+        # Reference Method 2 calculation
+        v = 0 .< p .< 1
+        q = p[v]
+        Z_m2 = (gt[v, :] .- 2 .* q) ./ sqrt.(2 .* q .* (1 .- q))
+        G_m2_ref = (Z_m2' * Z_m2) ./ sum(v)
+        @test isapprox(G_m2, G_m2_ref; rtol=1e-10, atol=1e-10)
+
+        # 2. Dominance Relationship Matrix
+        G_dom = grm(gt, p; method=:dominance)
+        @test size(G_dom) == (nid, nid)
+        @test issymmetric(G_dom)
+
+        # Dominance coding must match the Vitezica et al. reference.
+        W = similar(Float64.(gt[v, :]))
+        for j in axes(W, 2), i in axes(W, 1)
+            W[i, j] = if gt[v, :][i, j] == 0
+                -2 * q[i]^2
+            elseif gt[v, :][i, j] == 1
+                2 * q[i] * (1 - q[i])
+            else
+                -2 * (1 - q[i])^2
+            end
+        end
+        G_dom_ref = (W' * W) ./ sum((2 .* q .* (1 .- q)) .^ 2)
+        @test isapprox(G_dom, G_dom_ref; rtol=1e-10, atol=1e-10)
+
+        @test eltype(grm(gt, p; method=:vanraden2, T=Float16)) == Float16
+        @test eltype(grm(gt, p; method=:dominance, T=Float16)) == Float16
+
+        # 3. Delta Blending
+        G_blended = grm(gt, p; delta=0.1)
+        G_unblended = grm(gt, p)
+        @test isapprox(G_blended, 0.9 .* G_unblended .+ 0.1 .* Matrix(I, nid, nid); rtol=1e-10, atol=1e-10)
+
+        # 4. Error on unknown method
+        @test_throws ErrorException grm(gt, p; method=:unknown_model)
+        @test_throws ErrorException grm(gt, p; method=:unknown_model)
     end
 end

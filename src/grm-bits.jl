@@ -91,9 +91,11 @@ function _grm_from_haplotype_chunks(
     p::Union{Nothing, AbstractVector{<:Real}} = nothing,
     maf::Float64 = 0.0,
     loci = nothing,
+    delta::Real = 0.0,
     T::Type{<:AbstractFloat} = Float64,
 )
     iseven(nhp) || error("Number of haplotypes (nhp) must be even")
+    0.0 <= delta < 1.0 || throw(ArgumentError("Blending parameter delta must be in [0, 1)"))
     nid = nhp ÷ 2
     w = cld(nlc, 64)
 
@@ -193,6 +195,15 @@ function _grm_from_haplotype_chunks(
     G .-= c1'
     G .+= c2
     G ./= d
+
+    # 8. Blending with identity matrix if delta > 0
+    if delta > 0.0
+        one_minus_d = one(T) - T(delta)
+        G .= one_minus_d .* G
+        for i in 1:nid
+            G[i, i] += T(delta)
+        end
+    end
 
     return G
 end

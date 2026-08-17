@@ -31,6 +31,11 @@ Ai  = ainv(ped)
 d   = nrm_diag(ped)
 k   = kinship(ped, 1, 2)
 
+# Single-step GBLUP relationships for genotyped individuals
+ids = [2, 3, 4]
+A22 = nrm(ped, ids)
+Hinv = hinv(ped, G, ids)
+
 # Genomic Relationship Matrix
 # gt: (nlc × nid) Matrix{Int8}, p: Vector{Float64}
 G = grm(gt)
@@ -60,11 +65,16 @@ to the corresponding haplotype layout before calculation.
 
 ## Functions
 - `nrm(ped; T=Float64)`: Full numerator relationship matrix $A$
+- `nrm(ped, ids; T=Float64)`: Pedigree submatrix $A_{22}$
 - `nrm_diag(ped; m=-1)`: Diagonals of $A$ ($1 + F_i$)
 - `ainv(ped; verbose=false)`: Inverse numerator relationship matrix $A^{-1}$ (also aliased as `Ainv`)
 - `kinship(ped, i, j)`: Pairwise kinship between individuals `i` and `j`
-- `grm(gt, p; T=Float64)`: Genomic relationship matrix from genotypes and allele frequencies
-- `grm(gt; T=Float64)`: GRM with allele frequencies estimated from `gt`
+- `hinv(ped, G, genotyped_ids; delta=0.0, T=Float64)`: Single-step GBLUP
+  inverse relationship matrix $H^{-1}$
+- `grm(gt, p; method=:vanraden1, delta=0.0, T=Float64)`: Genomic
+  relationship matrix from genotypes and allele frequencies
+- `grm(gt; method=:vanraden1, delta=0.0, T=Float64)`: GRM with allele
+  frequencies estimated from `gt`
 - `grm(h::Haplotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: Packed
   bit-parallel GRM when `BnGStructs` is installed
 - `grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, T=Float64)`: GRM from

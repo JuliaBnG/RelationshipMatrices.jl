@@ -2,6 +2,15 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.3.0] - 2026-08-17
+
+### Added
+- `nrm(ped, ids)` extracts a pedigree relationship submatrix using
+  Colleau's indirect algorithm.
+- `hinv(ped, G, genotyped_ids)` builds the single-step GBLUP inverse
+  relationship matrix, with optional blending.
+- GRM VanRaden Method 2 and dominance relationship models.
+
 ## [v0.2.0] - 2026-08-17
 
 ### Added
