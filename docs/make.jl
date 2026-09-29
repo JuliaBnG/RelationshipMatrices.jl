@@ -17,6 +17,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/JuliaBnG/juliabng.github.io.git",
-    target = "RelationshipMatrices",
+    repo = "github.com/JuliaBnG/RelationshipMatrices.jl.git",
+    deploy_repo = "github.com/JuliaBnG/juliabng.github.io.git",
+    dirname = "RelationshipMatrices",
 )
