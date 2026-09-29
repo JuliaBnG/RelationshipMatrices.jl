@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Examples · RelationshipMatrices.jl</title><meta name="title" content="Examples · RelationshipMatrices.jl"/><meta property="og:title" content="Examples · RelationshipMatrices.jl"/><meta property="twitter:title" content="Examples · RelationshipMatrices.jl"/><meta name="description" content="Documentation for RelationshipMatrices.jl."/><meta property="og:description" content="Documentation for RelationshipMatrices.jl."/><meta property="twitter:description" content="Documentation for RelationshipMatrices.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.63.2/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">RelationshipMatrices.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../api/">API Reference</a></li><li class="is-active"><a class="tocitem" href>Examples</a><ul class="internal"><li><a class="tocitem" href="#1.-Pedigree-Based-Relationships"><span>1. Pedigree-Based Relationships</span></a></li><li><a class="tocitem" href="#2.-Single-Step-GBLUP-(H{-1})-Workflow"><span>2. Single-Step GBLUP (<span>$H^{-1}$</span>) Workflow</span></a></li><li><a class="tocitem" href="#3.-Genomic-Relationship-Matrices-(G)"><span>3. Genomic Relationship Matrices (<span>$G$</span>)</span></a></li><li><a class="tocitem" href="#4.-Packed-Genotypes-with-BnGStructs.jl"><span>4. Packed Genotypes with BnGStructs.jl</span></a></li><li><a class="tocitem" href="#5.-Realized-Identity-by-Descent-(IRM)"><span>5. Realized Identity-by-Descent (<span>$IRM$</span>)</span></a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Examples</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Examples</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/JuliaBnG/RelationshipMatrices.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/JuliaBnG/RelationshipMatrices.jl/blob/main/docs/src/examples.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h1><p>This guide provides end-to-end examples showing how to prepare data and calculate relationship matrices.</p><hr/><h2 id="1.-Pedigree-Based-Relationships"><a class="docs-heading-anchor" href="#1.-Pedigree-Based-Relationships">1. Pedigree-Based Relationships</a><a id="1.-Pedigree-Based-Relationships-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Pedigree-Based-Relationships" title="Permalink"></a></h2><h3 id="Preparing-a-Pedigree-from-Scratch"><a class="docs-heading-anchor" href="#Preparing-a-Pedigree-from-Scratch">Preparing a Pedigree from Scratch</a><a id="Preparing-a-Pedigree-from-Scratch-1"></a><a class="docs-heading-anchor-permalink" href="#Preparing-a-Pedigree-from-Scratch" title="Permalink"></a></h3><p>A pedigree in <code>RelationshipMatrices</code> is represented as a <code>DataFrame</code> with <code>:sire</code> and <code>:dam</code> columns.</p><ul><li>The row number <code>i</code> (<code>1 &lt;= i &lt;= N</code>) implicitly identifies individual <code>i</code>.</li><li>Unknown parents must be coded as <code>0</code>.</li><li>Parents must appear in rows prior to their offspring (<code>sire &lt; i</code> and <code>dam &lt; i</code>).</li></ul><pre><code class="language-julia hljs">using DataFrames, RelationshipMatrices
+
+# 5 individuals:
+# - Animals 1 and 2 are unrelated base founders (unknown parents = 0).
+# - Animal 3 is offspring of sire 1 and dam 2.
+# - Animal 4 is offspring of sire 1 and an unknown dam (dam = 0).
+# - Animal 5 is offspring of sire 3 and dam 4 (inbred mating).
+ped = DataFrame(
+    sire = [0, 0, 1, 1, 3],
+    dam  = [0, 0, 2, 0, 4]
+)
+
+# Validate structure and parent ordering
+validate_pedigree(ped) # true</code></pre><h3 id="Recoding-Raw-Pedigrees-with-String-IDs"><a class="docs-heading-anchor" href="#Recoding-Raw-Pedigrees-with-String-IDs">Recoding Raw Pedigrees with String IDs</a><a id="Recoding-Raw-Pedigrees-with-String-IDs-1"></a><a class="docs-heading-anchor-permalink" href="#Recoding-Raw-Pedigrees-with-String-IDs" title="Permalink"></a></h3><p>In practical applications, animal records typically contain string tags (e.g. ear tags) and missing parent entries. Here is a pattern to recode raw data:</p><pre><code class="language-julia hljs">using DataFrames, RelationshipMatrices
+
+# Raw pedigree table with string IDs
+raw_ped = DataFrame(
+    id   = [&quot;SireA&quot;, &quot;DamB&quot;, &quot;BullC&quot;, &quot;CowD&quot;, &quot;CalfE&quot;],
+    sire = [missing, missing, &quot;SireA&quot;, &quot;SireA&quot;, &quot;BullC&quot;],
+    dam  = [missing, missing, &quot;DamB&quot;,  missing, &quot;CowD&quot;]
+)
+
+# 1. Map IDs to 1:N
+id_map = Dict(id =&gt; i for (i, id) in enumerate(raw_ped.id))
+
+# 2. Convert parent tags to integers (missing -&gt; 0)
+sire_ids = [coalesce(get(id_map, s, 0), 0) for s in raw_ped.sire]
+dam_ids  = [coalesce(get(id_map, d, 0), 0) for d in raw_ped.dam]
+
+ped = DataFrame(sire = sire_ids, dam = dam_ids)
+validate_pedigree(ped)</code></pre><h3 id="Computing-the-Full-Numerator-Relationship-Matrix-(A)"><a class="docs-heading-anchor" href="#Computing-the-Full-Numerator-Relationship-Matrix-(A)">Computing the Full Numerator Relationship Matrix (<span>$A$</span>)</a><a id="Computing-the-Full-Numerator-Relationship-Matrix-(A)-1"></a><a class="docs-heading-anchor-permalink" href="#Computing-the-Full-Numerator-Relationship-Matrix-(A)" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Full 5x5 dense matrix (Float64 by default)
+A = nrm(ped)
+
+# Single-precision (Float32) to save memory for moderate-to-large pedigrees:
+A_f32 = nrm(ped; T = Float32)</code></pre><h3 id="Computing-Sparse-Inverse-(A{-1})-via-Henderson&#39;s-Direct-Method"><a class="docs-heading-anchor" href="#Computing-Sparse-Inverse-(A{-1})-via-Henderson&#39;s-Direct-Method">Computing Sparse Inverse (<span>$A^{-1}$</span>) via Henderson&#39;s Direct Method</a><a id="Computing-Sparse-Inverse-(A{-1})-via-Henderson&#39;s-Direct-Method-1"></a><a class="docs-heading-anchor-permalink" href="#Computing-Sparse-Inverse-(A{-1})-via-Henderson&#39;s-Direct-Method" title="Permalink"></a></h3><p>Henderson&#39;s algorithm constructs <span>$A^{-1}$</span> directly in <span>$O(N)$</span> time without inverting <span>$A$</span>:</p><pre><code class="language-julia hljs"># Sparse CSC matrix of Float64 values
+A_inv = ainv(ped)
+
+# Ainv is an uppercase alias
+A_inv = Ainv(ped; verbose = true)</code></pre><h3 id="Inbreeding-Coefficients-from-Diagonals"><a class="docs-heading-anchor" href="#Inbreeding-Coefficients-from-Diagonals">Inbreeding Coefficients from Diagonals</a><a id="Inbreeding-Coefficients-from-Diagonals-1"></a><a class="docs-heading-anchor-permalink" href="#Inbreeding-Coefficients-from-Diagonals" title="Permalink"></a></h3><p>The diagonal elements of <span>$A$</span> equal <span>$1 + F_i$</span>, where <span>$F_i$</span> is Wright&#39;s inbreeding coefficient:</p><pre><code class="language-julia hljs"># Computes diagonals in parallel using multi-threaded memoized kinship
+diag_A = nrm_diag(ped)
+
+# Inbreeding coefficients F
+inbreeding = diag_A .- 1.0
+println(&quot;Inbreeding coefficient of individual 5: &quot;, inbreeding[5])</code></pre><h3 id="Pairwise-Additive-Relationships"><a class="docs-heading-anchor" href="#Pairwise-Additive-Relationships">Pairwise Additive Relationships</a><a id="Pairwise-Additive-Relationships-1"></a><a class="docs-heading-anchor-permalink" href="#Pairwise-Additive-Relationships" title="Permalink"></a></h3><p>Calculate relationship coefficients for specific pairs without forming the full matrix:</p><pre><code class="language-julia hljs"># Query relationship between individuals 3 and 4
+k_34 = kinship(ped, 3, 4)
+
+# Batch queries in parallel
+pairs = [(1, 3), (1, 5), (3, 5), (4, 5)]
+k_batch = kinship(ped, pairs)</code></pre><h3 id="Submatrix-Extraction-with-Colleau&#39;s-Method"><a class="docs-heading-anchor" href="#Submatrix-Extraction-with-Colleau&#39;s-Method">Submatrix Extraction with Colleau&#39;s Method</a><a id="Submatrix-Extraction-with-Colleau&#39;s-Method-1"></a><a class="docs-heading-anchor-permalink" href="#Submatrix-Extraction-with-Colleau&#39;s-Method" title="Permalink"></a></h3><p>When you only need relationships among a subset of individuals (e.g. genotyped individuals), Colleau&#39;s (2002) indirect algorithm computes the submatrix <span>$A_{22}$</span> without allocating the full <span>$N \times N$</span> matrix:</p><pre><code class="language-julia hljs"># Extract relationships for animals 3, 4, and 5
+genotyped_ids = [3, 4, 5]
+A22 = nrm(ped, genotyped_ids) # 3x3 matrix</code></pre><hr/><h2 id="2.-Single-Step-GBLUP-(H{-1})-Workflow"><a class="docs-heading-anchor" href="#2.-Single-Step-GBLUP-(H{-1})-Workflow">2. Single-Step GBLUP (<span>$H^{-1}$</span>) Workflow</a><a id="2.-Single-Step-GBLUP-(H{-1})-Workflow-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Single-Step-GBLUP-(H{-1})-Workflow" title="Permalink"></a></h2><p>In single-step genomic BLUP (ssGBLUP), ungenotyped and genotyped animals are analyzed simultaneously by combining pedigree relationships (<span>$A$</span>) and genomic relationships (<span>$G$</span>):</p><pre><code class="language-julia hljs">using DataFrames, RelationshipMatrices
+
+# 1. Complete pedigree containing both ungenotyped founders and genotyped progeny
+ped = DataFrame(
+    sire = [0, 0, 1, 1, 3],
+    dam  = [0, 0, 2, 0, 4]
+)
+
+# 2. Subset of individuals that have been genotyped
+genotyped_ids = [3, 4, 5]
+
+# 3. Genomic Relationship Matrix (3x3) for the genotyped animals
+G = [
+    1.05  0.22  0.61
+    0.22  1.02  0.59
+    0.61  0.59  1.12
+]
+
+# 4. Form sparse H-inverse with 5% blending (G* = 0.95*G + 0.05*A22)
+H_inv = hinv(ped, G, genotyped_ids; delta = 0.05)
+
+# Uppercase alias
+H_inv = Hinv(ped, G, genotyped_ids; delta = 0.05)</code></pre><hr/><h2 id="3.-Genomic-Relationship-Matrices-(G)"><a class="docs-heading-anchor" href="#3.-Genomic-Relationship-Matrices-(G)">3. Genomic Relationship Matrices (<span>$G$</span>)</a><a id="3.-Genomic-Relationship-Matrices-(G)-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Genomic-Relationship-Matrices-(G)" title="Permalink"></a></h2><h3 id="From-Dense-Genotype-Dosages"><a class="docs-heading-anchor" href="#From-Dense-Genotype-Dosages">From Dense Genotype Dosages</a><a id="From-Dense-Genotype-Dosages-1"></a><a class="docs-heading-anchor-permalink" href="#From-Dense-Genotype-Dosages" title="Permalink"></a></h3><p>Genotypes are provided as an <code>nlc × nid</code> matrix (<code>Matrix{Int8}</code>), where rows are loci (SNPs) and columns are individuals. Allele dosages must be coded <code>0, 1, 2</code>.</p><pre><code class="language-julia hljs">using RelationshipMatrices
+using Statistics
+
+# 100 loci across 20 individuals
+gt = rand(Int8[0, 1, 2], 100, 20)
+
+# VanRaden Method 1 (default): allele frequencies estimated from sample
+G1 = grm(gt)
+
+# VanRaden Method 1 with external base-population allele frequencies
+p_base = fill(0.3, 100)
+G1_base = grm(gt, p_base)
+
+# VanRaden Method 2 (per-locus standardization)
+G2 = grm(gt, p_base; method = :vanraden2)
+
+# Genomic Dominance Relationship Matrix (Vitezica et al., 2013)
+G_dom = grm(gt, p_base; method = :dominance)
+
+# Blending with identity matrix (G* = 0.98*G + 0.02*I) to ensure invertibility
+G_blended = grm(gt, p_base; delta = 0.02)</code></pre><h3 id="From-Bit-Encoded-Founder-Alleles"><a class="docs-heading-anchor" href="#From-Bit-Encoded-Founder-Alleles">From Bit-Encoded Founder Alleles</a><a id="From-Bit-Encoded-Founder-Alleles-1"></a><a class="docs-heading-anchor-permalink" href="#From-Bit-Encoded-Founder-Alleles" title="Permalink"></a></h3><p>When simulating populations or tracking haplotypes, founder alleles can be stored in an unsigned integer matrix (<code>nlc × 2*nid</code>):</p><ul><li>Adjacent columns <code>2i - 1</code> and <code>2i</code> represent individual <code>i</code>&#39;s two haplotypes.</li><li>Bit 0 (<code>val &amp; 1</code>) stores the 0/1 SNP allele.</li><li>Higher bits store founder lineage identity.</li></ul><pre><code class="language-julia hljs">using RelationshipMatrices
+
+# 2 loci x 4 haplotypes (2 diploid individuals)
+encoded_alleles = UInt32[
+    0x10 0x21 0x30 0x41
+    0x12 0x23 0x32 0x43
+]
+
+# grm decodes bit 0 into dosages and evaluates G
+G = grm(encoded_alleles)</code></pre><hr/><h2 id="4.-Packed-Genotypes-with-BnGStructs.jl"><a class="docs-heading-anchor" href="#4.-Packed-Genotypes-with-BnGStructs.jl">4. Packed Genotypes with BnGStructs.jl</a><a id="4.-Packed-Genotypes-with-BnGStructs.jl-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Packed-Genotypes-with-BnGStructs.jl" title="Permalink"></a></h2><p>If <code>BnGStructs.jl</code> is installed in your project, <code>RelationshipMatrices</code> automatically extends <code>grm</code> to work directly on packed bit arrays using CPU popcount instructions:</p><pre><code class="language-julia hljs">using BnGStructs, RelationshipMatrices
+
+# h is a BnGStructs.Haplotype
+G = grm(h)
+
+# Filter by Minor Allele Frequency (MAF &gt;= 0.05)
+G_maf = grm(h; maf = 0.05)
+
+# Restrict to a specific marker panel (e.g. 50k chip)
+G_panel = grm(h, locus_set; p = allele_frequencies)
+
+# Compute from a packed BnGStructs.Genotype
+G_geno = grm(g; maf = 0.01)</code></pre><hr/><h2 id="5.-Realized-Identity-by-Descent-(IRM)"><a class="docs-heading-anchor" href="#5.-Realized-Identity-by-Descent-(IRM)">5. Realized Identity-by-Descent (<span>$IRM$</span>)</a><a id="5.-Realized-Identity-by-Descent-(IRM)-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Realized-Identity-by-Descent-(IRM)" title="Permalink"></a></h2><p>The <code>irm</code> function calculates the realized locus-level IBD relationship matrix from uniquely labelled founder alleles:</p><pre><code class="language-julia hljs">using RelationshipMatrices
+
+# Rows are loci; adjacent columns are maternal and paternal haplotypes
+# Labels identify ancestral founder alleles
+founder_alleles = UInt32[
+    1 2 1 3
+    4 5 4 5
+]
+
+# Realized IBD relationship matrix (diagonals equal 1 + F_i)
+I = irm(founder_alleles)
+
+# irm_locus is an alias
+I = irm_locus(founder_alleles)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../api/">« API Reference</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Tuesday 29 September 2026 09:39">Tuesday 29 September 2026</span>. Using Julia version 1.11.9.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
