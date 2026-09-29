@@ -15,3 +15,8 @@ makedocs(
         "Examples" => "examples.md",
     ],
 )
+
+deploydocs(
+    repo = "github.com/JuliaBnG/juliabng.github.io.git",
+    target = "RelationshipMatrices",
+)

@@ -19,5 +19,10 @@ jobs:
           version: '1.11'
       - name: Install dependencies
         run: julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+      - name: Configure documentation deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DOCS_DEPLOY_TOKEN: ${{ secrets.DOCS_DEPLOY_TOKEN }}
+        run: git config --global url."https://x-access-token:${DOCS_DEPLOY_TOKEN}@github.com/".insteadOf "https://github.com/"
       - name: Build docs
         run: julia --project=docs docs/make.jl
