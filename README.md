@@ -21,12 +21,14 @@ Efficient computation of relationship matrices for quantitative genetics in Juli
 pkg> add RelationshipMatrices
 ```
 
-## Pedigree Data Conventions
+## Pedigree Data Conventions & Preparation
 
-Pedigree functions expect a `DataFrame` containing `:sire` and `:dam` columns:
-- **Row index is ID**: Row `i` represents individual `i` (from `1` to `N`).
-- **`0` means unknown/missing parent**.
+Pedigree functions expect a `DataFrame` following these rules:
+- **Columns**: Must contain `:sire` and `:dam` columns.
+- **Row index is individual ID**: Row `i` represents individual `i` (from `1` to `N = nrow(ped)`). An explicit ID column is not required.
+- **`0` means unknown/missing parent**: Unknown parents **must be coded as integer `0`** (not `missing` or `nothing`).
 - **Parents must precede offspring**: `sire < i` and `dam < i`.
+- If raw data uses string tags or unsorted rows, sort parents before offspring and recode IDs to contiguous integers `1:N`. Use `validate_pedigree(ped)` to verify.
 
 ## Usage
 
@@ -36,25 +38,37 @@ using DataFrames, RelationshipMatrices
 # 1. Pedigree-based Relationship Matrices
 ped = DataFrame(
     sire = [0, 0, 1, 1, 3],
-    dam  = [0, 0, 0, 2, 4],
+    dam  = [0, 0, 2, 0, 4],
 )
+validate_pedigree(ped)   # Validate pedigree conventions
 
-A    = nrm(ped)          # Full A matrix
-A_i  = ainv(ped)         # Sparse A inverse (also aliased as Ainv)
-diag = nrm_diag(ped)     # 1 + F_i diagonals
-k_12 = kinship(ped, 1, 2)# Kinship between individuals 1 and 2
+A    = nrm(ped)          # Full dense A matrix
+A_i  = ainv(ped)         # Sparse A-inverse via Henderson's direct method (aliased as Ainv)
+diag = nrm_diag(ped)     # 1 + F_i diagonals (F_i = diag .- 1.0)
+k_14 = kinship(ped, 1, 4)# Additive relationship between individuals 1 and 4
 
-# 2. Genomic Relationship Matrix (GRM)
+# Extract submatrix A22 for genotyped individuals without allocating full A (Colleau's method)
+genotyped_ids = [3, 4, 5]
+A22 = nrm(ped, genotyped_ids)
+
+# 2. Single-Step GBLUP H-inverse
+# G: 3x3 genomic relationship matrix for genotyped individuals
+H_inv = hinv(ped, G, genotyped_ids; delta = 0.05) # Aliased as Hinv
+
+# 3. Genomic Relationship Matrix (GRM)
 # gt is an (nlc × nid) Matrix{Int8} coded 0/1/2
-G = grm(gt)              # With allele frequencies estimated from gt
+G = grm(gt)              # VanRaden Method 1 with allele frequencies estimated from gt
 G = grm(gt, p)           # With user-supplied allele frequency vector p
+G_std = grm(gt, p; method = :vanraden2) # VanRaden Method 2 (standardized)
+G_dom = grm(gt, p; method = :dominance) # Genomic dominance matrix
+G_reg = grm(gt, p; delta = 0.02)        # Blended with identity: (1-δ)G + δI
 
-# 3. Locus-level identity by descent
+# 4. Locus-level identity by descent (IRM)
 # founder_alleles is (loci × 2*individuals), with adjacent columns paired
 I = irm(founder_alleles)
 
 # `UInt32`/`UInt64` founder codes can also feed `grm`:
-# the low bit is the observed SNP allele; higher bits retain allele identity.
+# the low bit is the observed SNP allele; higher bits retain founder identity.
 G_from_codes = grm(founder_alleles)
 ```
 

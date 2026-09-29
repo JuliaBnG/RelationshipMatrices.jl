@@ -1,14 +1,48 @@
 """
-    nrm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64)
+    nrm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
-Calculates the full numerator relationship matrix (A).
+Calculate the full numerator relationship matrix (\$A\$, also known as the additive relationship matrix) from pedigree data.
+
+The elements of \$A\$ represent additive genetic relationships:
+- Diagonal elements: \$A_{ii} = 1 + F_i\$, where \$F_i\$ is the inbreeding coefficient of individual \$i\$.
+- Off-diagonal elements: \$A_{ij} = A_{ji} = 0.5(A_{i, sire_j} + A_{i, dam_j})\$ (\$2 \\times\$ Malécot's kinship coefficient \$\\Phi_{ij}\$).
+
+# Pedigree Requirements
+- `ped::DataFrame` must have `:sire` and `:dam` columns.
+- Row `i` corresponds to individual `i` (\$1 \\le i \\le N\$).
+- Unknown or missing parents must be coded as `0`.
+- Parents must precede their offspring (`sire < i` and `dam < i`). Use [`validate_pedigree`](@ref) to verify.
+
+# Memory Considerations
+Allocates a dense \$N \\times N\$ matrix (e.g. 8 GB for \$N = 31{,}622\$ in `Float64`). For large pedigrees:
+- If only \$A^{-1}\$ is needed for mixed models, use [`ainv`](@ref).
+- If relationships are needed only for a genotyped subset, use [`nrm(ped, ids)`](@ref).
+- If only individual inbreeding coefficients are needed, use [`nrm_diag`](@ref).
 
 # Arguments
-- `ped::DataFrame`: A DataFrame with columns `:sire` and `:dam`. Row numbers are IDs.
-- `T::Type{<:AbstractFloat}`: Element type of the output matrix (defaults to `Float64`).
+- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `T::Type{<:AbstractFloat}`: Element type of the output matrix (default: `Float64`).
 
 # Returns
-- `Matrix{T}`: The full numerator relationship matrix (A).
+- `Matrix{T}`: Dense \$N \\times N\$ numerator relationship matrix.
+
+# Examples
+```jldoctest
+using DataFrames, RelationshipMatrices
+
+ped = DataFrame(
+    sire = [0, 0, 1, 1],
+    dam  = [0, 0, 2, 3]
+)
+
+A = nrm(ped)
+# output
+4×4 Matrix{Float64}:
+ 1.0   0.0   0.5   0.75
+ 0.0   1.0   0.5   0.25
+ 0.5   0.5   1.0   0.75
+ 0.75  0.25  0.75  1.25
+```
 """
 function nrm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64)
     validate_pedigree(ped)
@@ -42,18 +76,36 @@ function nrm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64)
 end
 
 """
-    nrm(ped::DataFrame, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64)
+    nrm(ped::DataFrame, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
-Calculates the submatrix A₂₂ for a subset of individuals using Colleau's (2002) indirect algorithm.
-Avoids materializing the full N × N relationship matrix, reducing memory from O(N²) to O(N + n₂²).
+Calculate the relationship submatrix \$A_{22}\$ for a subset of individuals `ids` using Colleau's (2002) indirect algorithm.
+
+Avoids materializing the full \$N \\times N\$ pedigree matrix by performing backward-forward passes across the pedigree, reducing memory consumption from \$O(N^2)\$ to \$O(N + n_2^2)\$ where \$n_2 = \\text{length}(ids)\$. This is especially useful for single-step GBLUP where only genotyped individuals need pedigree relationships.
 
 # Arguments
-- `ped::DataFrame`: Pedigree with columns `:sire` and `:dam`.
-- `ids::AbstractVector{<:Integer}`: List of individual IDs to extract the relationship submatrix for.
-- `T::Type{<:AbstractFloat}`: Element type of the output matrix (defaults to `Float64`).
+- `ped::DataFrame`: Full pedigree table with `:sire` and `:dam` columns containing all individuals and their ancestors.
+- `ids::AbstractVector{<:Integer}`: Indices of target individuals (1-based row numbers in `ped`).
+- `T::Type{<:AbstractFloat}`: Floating point precision of the output matrix (default: `Float64`).
 
 # Returns
-- `Matrix{T}`: The (length(ids) × length(ids)) relationship submatrix A₂₂.
+- `Matrix{T}`: Dense \$n_2 \\times n_2\$ relationship submatrix where row `k` and column `l` correspond to `ids[k]` and `ids[l]`.
+
+# Examples
+```jldoctest
+using DataFrames, RelationshipMatrices
+
+ped = DataFrame(
+    sire = [0, 0, 1, 1],
+    dam  = [0, 0, 2, 3]
+)
+
+# Extract relationship submatrix A22 for individuals 3 and 4 only
+A22 = nrm(ped, [3, 4])
+# output
+2×2 Matrix{Float64}:
+ 1.0   0.75
+ 0.75  1.25
+```
 """
 function nrm(ped::DataFrame, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64)
     validate_pedigree(ped)

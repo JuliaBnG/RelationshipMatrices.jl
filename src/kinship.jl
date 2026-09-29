@@ -66,9 +66,48 @@ function kinship_threaded_memo(
 end
 
 """
-    kinship(ped::DataFrame, i::Integer, j::Integer)
+    kinship(ped::DataFrame, i::Integer, j::Integer) -> Float64
 
-Calculates the pairwise kinship / relationship coefficient between individuals `i` and `j`.
+Calculate the additive numerator relationship coefficient (\$A_{ij}\$) between individuals `i` and `j` from pedigree data.
+
+The computed value corresponds directly to entry \$(i, j)\$ of the numerator relationship matrix \$A\$ ([`nrm`](@ref)):
+- For identical individuals (\$i = j\$): returns \$A_{ii} = 1 + F_i\$, where \$F_i\$ is Wright's inbreeding coefficient.
+- For distinct individuals (\$i \\ne j\$): returns Wright's relationship coefficient \$A_{ij} = 2 \\Phi_{ij}\$ (twice Malécot's kinship coefficient \$\\Phi_{ij}\$). For example, parent-offspring and full-sib pairs with unrelated, non-inbred parents have a relationship of 0.5.
+
+# Pedigree Requirements
+- `ped::DataFrame` must have `:sire` and `:dam` columns.
+- Row indices correspond to individual IDs (`1:nrow(ped)`).
+- Unknown or missing parents must be coded as `0`.
+- Parents must precede offspring (`sire < i` and `dam < i`).
+
+# Arguments
+- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `i::Integer`: 1-based index (row number) of the first individual.
+- `j::Integer`: 1-based index (row number) of the second individual.
+
+# Returns
+- `Float64`: The additive relationship coefficient \$A_{ij}\$.
+
+# Examples
+```jldoctest
+using DataFrames, RelationshipMatrices
+
+ped = DataFrame(
+    sire = [0, 0, 1, 1],
+    dam  = [0, 0, 2, 3]
+)
+
+# Relationship between parent 1 and offspring 3 (0.5)
+kinship(ped, 1, 3)
+
+# Relationship between inbred offspring 4 and its sire 1 (0.75)
+kinship(ped, 1, 4)
+
+# Self-relationship (1 + F) of inbred individual 4 (1.25)
+kinship(ped, 4, 4)
+# output
+1.25
+```
 """
 function kinship(ped::DataFrame, i::Integer, j::Integer)
     validate_pedigree(ped)
@@ -81,9 +120,37 @@ function kinship(ped::DataFrame, i::Integer, j::Integer)
 end
 
 """
-    kinship(ped::DataFrame, pairs::AbstractVector{<:Tuple{Integer, Integer}})
+    kinship(ped::DataFrame, pairs::AbstractVector{<:Tuple{Integer, Integer}}) -> Vector{Float64}
 
-Calculates pairwise kinship coefficients for a list of `(i, j)` pairs.
+Calculate additive relationship coefficients (\$A_{ij}\$) for multiple pairs of individuals in parallel.
+
+Uses multi-threaded recursive evaluation with a thread-safe memoization cache, avoiding redundant calculations across related pairs.
+
+# Arguments
+- `ped::DataFrame`: Pedigree table with `:sire` and `:dam` columns.
+- `pairs::AbstractVector{<:Tuple{Integer, Integer}}`: Vector of `(i, j)` tuples containing 1-based row indices in `ped`.
+
+# Returns
+- `Vector{Float64}`: Vector of relationship values corresponding to each pair in `pairs`.
+
+# Examples
+```jldoctest
+using DataFrames, RelationshipMatrices
+
+ped = DataFrame(
+    sire = [0, 0, 1, 1],
+    dam  = [0, 0, 2, 3]
+)
+
+pairs = [(1, 2), (1, 3), (1, 4), (3, 4)]
+kinship(ped, pairs)
+# output
+4-element Vector{Float64}:
+ 0.0
+ 0.5
+ 0.75
+ 0.75
+```
 """
 function kinship(ped::DataFrame, pairs::AbstractVector{<:Tuple{Integer, Integer}})
     validate_pedigree(ped)

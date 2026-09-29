@@ -1,8 +1,56 @@
 """
-    ainv(ped::DataFrame; verbose::Bool = false)
-    Ainv(ped::DataFrame; verbose::Bool = false)
+    ainv(ped::DataFrame; verbose::Bool = false) -> SparseMatrixCSC{Float64, Int32}
+    Ainv(ped::DataFrame; verbose::Bool = false) -> SparseMatrixCSC{Float64, Int32}
 
-Calculates the sparse inverse of the numerator relationship matrix (A⁻¹) using Henderson's direct method.
+Compute the sparse inverse of the numerator relationship matrix (\$A^{-1}\$) directly from pedigree data using Henderson's (1976) rules.
+
+`Ainv` is provided as an alias for `ainv`.
+
+# Pedigree Preparation
+`RelationshipMatrices` requires a `DataFrame` following these conventions:
+1. **Required columns**: Must contain `:sire` and `:dam` (symbols or strings).
+2. **Implicit individual IDs**: Row number `i` (`1 <= i <= nrow(ped)`) defines the ID of individual `i`. An explicit ID column is not required.
+3. **Missing/Unknown parents**: Unknown parents **must be coded as `0`** (do not use `missing` or `nothing`).
+4. **Ordering**: Parents must precede offspring in the rows (`sire < i` and `dam < i`).
+   - If your raw dataset uses non-numeric or alphanumeric IDs, recode them to `1:N` such that every parent appears on an earlier row than any of its progeny.
+   - Run [`validate_pedigree`](@ref) to confirm that your pedigree conforms to these rules.
+
+# Arguments
+- `ped::DataFrame`: Pedigree table with `:sire` and `:dam` columns meeting the requirements above.
+- `verbose::Bool`: If `true`, displays progress percentage during calculation (default: `false`).
+
+# Returns
+- `SparseMatrixCSC{Float64, Int32}`: An \$N \\times N\$ sparse symmetric matrix representing \$A^{-1}\$.
+
+# Examples
+```jldoctest
+using DataFrames, RelationshipMatrices
+
+# Prepare a pedigree for 4 individuals:
+# Animals 1 and 2 are base founders (parents unknown = 0).
+# Animal 3 is offspring of sire 1 and dam 2.
+# Animal 4 is offspring of sire 1 and dam 3.
+ped = DataFrame(
+    sire = [0, 0, 1, 1],
+    dam  = [0, 0, 2, 3]
+)
+
+# Calculate sparse A-inverse
+A_inv = ainv(ped)
+
+# The uppercase alias produces the identical result
+A_inv_alias = Ainv(ped)
+A_inv == A_inv_alias
+
+# Convert to dense matrix for inspection if desired:
+Matrix(A_inv)
+# output
+4×4 Matrix{Float64}:
+  2.0   0.5  -0.5  -1.0
+  0.5   1.5  -1.0   0.0
+ -0.5  -1.0   2.5  -1.0
+ -1.0   0.0  -1.0   2.0
+```
 """
 function ainv(ped::DataFrame; verbose::Bool = false)
     validate_pedigree(ped)
@@ -74,5 +122,9 @@ function ainv(ped::DataFrame; verbose::Bool = false)
     return sparse(I, J, V, nid, nid)
 end
 
-# Backward-compatible alias
+"""
+    Ainv(ped::DataFrame; verbose::Bool = false)
+
+Standard uppercase alias for [`ainv`](@ref).
+"""
 const Ainv = ainv

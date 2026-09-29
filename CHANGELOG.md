@@ -2,6 +2,14 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.4.1] - 2026-09-29
+
+### Documentation
+- Added complete docstrings for public relationship-matrix APIs, their aliases,
+  inputs, return values, and error conditions.
+- Expanded the package overview and examples with pedigree preparation,
+  validation, genomic relationship models, and realized IBD workflows.
+
 ## [v0.4.0] - 2026-08-17
 
 ### Added

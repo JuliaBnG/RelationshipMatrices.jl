@@ -1,33 +1,66 @@
 """
-    hinv(
-        ped::DataFrame,
-        G::AbstractMatrix{<:Real},
-        genotyped_ids::AbstractVector{<:Integer};
-        delta::Real = 0.0,
-        T::Type{<:AbstractFloat} = Float64,
-    ) -> SparseMatrixCSC{T, Int32}
+    hinv(ped::DataFrame, G::AbstractMatrix{<:Real}, genotyped_ids::AbstractVector{<:Integer}; delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> SparseMatrixCSC{T, Int32}
+    Hinv(ped::DataFrame, G::AbstractMatrix{<:Real}, genotyped_ids::AbstractVector{<:Integer}; delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> SparseMatrixCSC{T, Int32}
 
-Calculates the inverse of the combined pedigree-genomic relationship matrix (H⁻¹) for single-step GBLUP (ssGBLUP).
+Compute the sparse inverse of the combined pedigree-genomic relationship matrix (\$H^{-1}\$) for Single-Step Genomic BLUP (ssGBLUP; Legarra et al., 2009; Aguilar et al., 2010; Christensen and Lund, 2010).
 
+`Hinv` is provided as an alias for `hinv`.
+
+# Mathematical Formulation
 ```math
-H^{-1} = A^{-1} + \\begin{bmatrix} 0 & 0 \\\\ 0 & G^{*-1} - A_{22}^{-1} \\end{bmatrix}
+H^{-1} = A^{-1} + \\begin{bmatrix} 0 & 0 \\\\ 0 & (G^*)^{-1} - A_{22}^{-1} \\end{bmatrix}
 ```
-
 where:
-- `A⁻¹` is the sparse inverse numerator relationship matrix across all `N` individuals.
-- `A₂₂` is the pedigree relationship submatrix among genotyped individuals (calculated via Colleau's indirect method).
-- `G*` is the (optionally blended) genomic relationship matrix: `(1 - δ)G + δ A₂₂`.
-- `δ` (`delta`) is an optional blending parameter in `[0, 1)` to prevent singularity (defaults to `0.0`).
+- \$A^{-1}\$ is the sparse inverse numerator relationship matrix across all \$N\$ individuals (computed via [`ainv`](@ref)).
+- \$A_{22}\$ is the pedigree relationship submatrix among genotyped individuals (computed via Colleau's indirect algorithm in [`nrm`](@ref)).
+- \$G^*\$ is the blended genomic relationship matrix: \$G^* = (1 - \\delta) G + \\delta A_{22}\$.
+- \$\\delta\$ (`delta`) is a blending parameter to guarantee positive definiteness and reconcile genetic bases (typically 0.05–0.10).
+
+# Pedigree & Genotype Preparation
+1. **Full Pedigree**: `ped::DataFrame` must contain **all** individuals (both ungenotyped ancestors/relatives and genotyped animals).
+   - Columns `:sire` and `:dam` required.
+   - Row index corresponds to individual ID (`1:N`).
+   - Unknown parents coded as `0`.
+   - Parents must precede offspring (`sire < i` and `dam < i`).
+2. **Genotyped IDs**: `genotyped_ids` is a vector of 1-based row indices in `ped` indicating which pedigree individual corresponds to row/column `k` of `G`. Must contain unique indices.
+3. **Genomic Matrix**: `G` is a dense \$n_2 \\times n_2\$ matrix (where \$n_2 = \\text{length}(genotyped\\_ids)\$), computed e.g. using [`grm`](@ref).
 
 # Arguments
-- `ped::DataFrame`: Full pedigree with `:sire` and `:dam` columns.
-- `G::AbstractMatrix`: Genomic relationship matrix of size `n₂ × n₂`.
-- `genotyped_ids::AbstractVector{<:Integer}`: Indices of genotyped individuals corresponding to rows/columns of `G`.
-- `delta::Real`: Blending weight `δ` (defaults to `0.0`).
-- `T::Type{<:AbstractFloat}`: Floating point type for inversion (defaults to `Float64`).
+- `ped::DataFrame`: Full pedigree table.
+- `G::AbstractMatrix{<:Real}`: Genomic relationship matrix for genotyped individuals (\$n_2 \\times n_2\$).
+- `genotyped_ids::AbstractVector{<:Integer}`: Vector of length \$n_2\$ listing row indices in `ped` for each entry in `G`.
+- `delta::Real`: Blending weight \$\\delta \\in [0, 1)\$ with \$A_{22}\$ (default: `0.0`).
+- `T::Type{<:AbstractFloat}`: Floating point type for inversions and output (default: `Float64`).
 
 # Returns
-- `SparseMatrixCSC{T, Int32}`: The sparse inverse relationship matrix `H⁻¹`.
+- `SparseMatrixCSC{T, Int32}`: Sparse symmetric \$N \\times N\$ matrix representing \$H^{-1}\$.
+
+# Examples
+```jldoctest
+using DataFrames, RelationshipMatrices
+
+# 4 animals in total; animals 3 and 4 are genotyped
+ped = DataFrame(
+    sire = [0, 0, 1, 1],
+    dam  = [0, 0, 2, 3]
+)
+
+# 2x2 Genomic relationship matrix for animals 3 and 4
+G = [
+    1.02  0.78
+    0.78  1.21
+]
+genotyped_ids = [3, 4]
+
+# Compute H-inverse with 5% blending
+H_inv = hinv(ped, G, genotyped_ids; delta = 0.05)
+
+# Standard uppercase alias
+H_inv_alias = Hinv(ped, G, genotyped_ids; delta = 0.05)
+H_inv == H_inv_alias
+# output
+true
+```
 """
 function hinv(
     ped::DataFrame,
@@ -85,5 +118,9 @@ function hinv(
     return sparse(I_all, J_all, V_all, N, N)
 end
 
-# Backward-compatible and standard uppercase alias
+"""
+    Hinv(ped::DataFrame, G::AbstractMatrix{<:Real}, genotyped_ids::AbstractVector{<:Integer}; delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64)
+
+Standard uppercase alias for [`hinv`](@ref).
+"""
 const Hinv = hinv

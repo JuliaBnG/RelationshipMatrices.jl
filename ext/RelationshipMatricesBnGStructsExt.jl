@@ -4,10 +4,23 @@ using RelationshipMatrices
 using BnGStructs
 
 """
-    grm(h::Haplotype; p=nothing, maf=0.0, loci=nothing, delta=0.0, T=Float64)
+    grm(h::Haplotype; p = nothing, maf::Float64 = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    grm(h::Haplotype, p::AbstractVector{<:Real}; maf::Float64 = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
-Compute the Genomic Relationship Matrix directly from a `BnGStructs.Haplotype`
-using bit-parallel CPU popcount instructions (4 popcounts per pair).
+Compute the Genomic Relationship Matrix (\$G\$) directly from a `BnGStructs.Haplotype` structure using bit-parallel CPU popcount instructions.
+
+Evaluates relationships using 4-way 64-bit popcounts per individual pair directly on packed `UInt64` chunks without decompressing or materializing genotype dosage matrices.
+
+# Arguments
+- `h::Haplotype`: Packed haplotype object from `BnGStructs` containing `nhp = 2 * nid` haplotypes across `nlc` loci.
+- `p::Union{Nothing, AbstractVector{<:Real}}`: Optional vector of allele frequencies. If `nothing` (default), allele frequencies are calculated directly from packed chunks.
+- `maf::Float64`: Minor allele frequency threshold in `[0.0, 0.5)`. Loci with `min(p, 1-p) < maf` are excluded (default: `0.0`).
+- `loci`: Optional collection of 1-based locus indices to subset markers.
+- `delta::Real`: Blending weight with identity matrix \$I\$ in `[0, 1)` (default: `0.0`).
+- `T::Type{<:AbstractFloat}`: Floating point output element type (default: `Float64`).
+
+# Returns
+- `Matrix{T}`: Dense \$nid \\times nid\$ genomic relationship matrix.
 """
 function RelationshipMatrices.grm(
     h::Haplotype;
@@ -41,9 +54,9 @@ function RelationshipMatrices.grm(
 end
 
 """
-    grm(h::Haplotype, vm::VariantMap; maf=0.0, loci=nothing, delta=0.0, T=Float64)
+    grm(h::Haplotype, vm::VariantMap; maf::Float64 = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
-Compute the GRM from a `Haplotype` using allele frequencies from a `VariantMap`.
+Compute the GRM from a `BnGStructs.Haplotype` using pre-computed allele frequencies stored in `vm.frq`.
 """
 function RelationshipMatrices.grm(
     h::Haplotype,
@@ -58,9 +71,9 @@ function RelationshipMatrices.grm(
 end
 
 """
-    grm(h::Haplotype, ls::LocusSet; p=nothing, maf=0.0, delta=0.0, T=Float64)
+    grm(h::Haplotype, ls::LocusSet; p = nothing, maf::Float64 = 0.0, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
-Compute the GRM from a `Haplotype` for a specified `LocusSet` panel (e.g. 50k chip).
+Compute the GRM from a `BnGStructs.Haplotype` restricted to a predefined marker panel defined by `ls.loci` (e.g. 50k SNP chip panel).
 """
 function RelationshipMatrices.grm(
     h::Haplotype,
@@ -74,9 +87,14 @@ function RelationshipMatrices.grm(
 end
 
 """
-    grm(g::Genotype; p=nothing, maf=0.0, loci=nothing, delta=0.0, T=Float64)
+    grm(g::Genotype; p = nothing, maf::Float64 = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    grm(g::Genotype, p::AbstractVector{<:Real}; maf::Float64 = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    grm(g::Genotype, vm::VariantMap; maf::Float64 = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    grm(g::Genotype, ls::LocusSet; p = nothing, maf::Float64 = 0.0, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
-Compute the GRM from a `BnGStructs.Genotype` by converting to `Haplotype`.
+Compute the Genomic Relationship Matrix from a packed `BnGStructs.Genotype` structure.
+
+Converts `Genotype` to a 2-haplotypes-per-individual `Haplotype` representation via `BnGStructs.id2hap` and executes the bit-parallel popcount engine.
 """
 function RelationshipMatrices.grm(
     g::Genotype;
