@@ -28,6 +28,22 @@ using Test
         G_f32 = grm(gt; T = Float32)
         @test eltype(G_f32) == Float32
         @test isapprox(Matrix(G_f32), Float32.(G2); rtol = 1e-5, atol = 1e-5)
+
+        # Blocked accumulation over loci, with a ragged last block
+        tab = [g - 2q[l] for g in 0:2, l in eachindex(q)]
+        for blk in (1, 7, 64, nlc)
+            Gb = zeros(nid, nid)
+            RelationshipMatrices._grm_blocked!(Gb, gt, findall(v), tab, 1 / d; blk = blk)
+            @test isapprox(Gb, G2; rtol = 1e-10, atol = 1e-10)
+            @test issymmetric(Gb)
+        end
+
+        # Monomorphic loci are dropped; non-BLAS element types still work
+        gt_mono = vcat(gt, zeros(Int8, 3, nid), fill(Int8(2), 2, nid))
+        @test isapprox(grm(gt_mono), G2; rtol = 1e-10, atol = 1e-10)
+        G_f16 = grm(gt; T = Float16)
+        @test eltype(G_f16) == Float16
+        @test isapprox(Float64.(G_f16), G2; rtol = 1e-2, atol = 1e-2)
     end
 
     @testset "NRM and Ainv tests" begin
@@ -240,8 +256,32 @@ using Test
         G_dom_ref = (W' * W) ./ sum((2 .* q .* (1 .- q)) .^ 2)
         @test isapprox(G_dom, G_dom_ref; rtol=1e-10, atol=1e-10)
 
+        # Blocked accumulation (ragged last block) for both coded models
+        loci = findall(v)
+        tab_m2 = [(g - 2q[l]) / sqrt(2q[l] * (1 - q[l])) for g in 0:2, l in eachindex(q)]
+        tab_dom = [(-2q[l]^2, 2q[l] * (1 - q[l]), -2(1 - q[l])^2)[g+1]
+                   for g in 0:2, l in eachindex(q)]
+        for blk in (1, 13, sum(v))
+            Gb = zeros(nid, nid)
+            RelationshipMatrices._grm_blocked!(Gb, gt, loci, tab_m2, 1 / sum(v); blk = blk)
+            @test isapprox(Gb, G_m2_ref; rtol=1e-10, atol=1e-10)
+            alpha_dom = 1 / sum((2 .* q .* (1 .- q)) .^ 2)
+            RelationshipMatrices._grm_blocked!(Gb, gt, loci, tab_dom, alpha_dom; blk = blk)
+            @test isapprox(Gb, G_dom_ref; rtol=1e-10, atol=1e-10)
+        end
+
         @test eltype(grm(gt, p; method=:vanraden2, T=Float16)) == Float16
         @test eltype(grm(gt, p; method=:dominance, T=Float16)) == Float16
+        @test isapprox(Float64.(grm(gt, p; method=:dominance, T=Float32)), G_dom_ref;
+                       rtol=1e-4, atol=1e-4)
+
+        # Dosages outside 0:2 (e.g. missing codes) are rejected
+        for bad in (Int8(-1), Int8(3), Int8(9))
+            gt_bad = copy(gt)
+            gt_bad[1, 1] = bad
+            @test_throws ArgumentError grm(gt_bad, p)
+            @test_throws ArgumentError grm(gt_bad, p; method=:dominance)
+        end
 
         # 3. Delta Blending
         G_blended = grm(gt, p; delta=0.1)
@@ -251,6 +291,20 @@ using Test
         # 4. Error on unknown method
         @test_throws ErrorException grm(gt, p; method=:unknown_model)
         @test_throws ErrorException grm(gt, p; method=:unknown_model)
+    end
+
+    @testset "Tiled upper-triangle iteration" begin
+        # Every pair i ≤ j visited exactly once, for ragged and degenerate sizes
+        for n in (0, 1, 2, 3, 17, 130, 301), colbytes in (1, 2^10, 2^16, 2^22)
+            hits = zeros(Int, n, n)
+            RelationshipMatrices._foreach_upper_pair(n, colbytes) do i, j
+                hits[i, j] += 1
+            end
+            @test all(hits[i, j] == (i <= j) for j in 1:n, i in 1:n)
+        end
+        @test RelationshipMatrices._tile_size(10^6, 2^22) == 4
+        @test RelationshipMatrices._tile_size(10^6, 8) == 128
+        @test RelationshipMatrices._tile_size(3, 8) ≥ 1
     end
 
     @testset "Locus-level IBD relationship matrix" begin
@@ -271,6 +325,15 @@ using Test
         @test_throws ArgumentError irm(zeros(UInt32, 0, 2))
         @test_throws ArgumentError irm(zeros(UInt32, 1, 3))
         @test_throws MethodError irm(zeros(Int, 1, 2))
+
+        # Many tiles, ragged last tile: brute-force reference
+        nlc, nid = 37, 150
+        al = rand(UInt16(0):UInt16(9), nlc, 2nid)
+        ref = [sum((al[l, 2i-1] == al[l, 2j-1]) + (al[l, 2i-1] == al[l, 2j]) +
+                   (al[l, 2i] == al[l, 2j-1]) + (al[l, 2i] == al[l, 2j]) for l in 1:nlc) /
+               (2nlc) for i in 1:nid, j in 1:nid]
+        @test irm(al) ≈ ref
+        @test issymmetric(irm(al))
     end
 
     @testset "GRM from encoded founder alleles" begin

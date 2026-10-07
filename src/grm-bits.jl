@@ -6,19 +6,18 @@ Calculate allele frequencies across `nhp` haplotypes for `nlc` loci directly fro
 function _allele_frequencies_from_chunks(chunks::Vector{UInt64}, nlc::Int, nhp::Int)
     w = cld(nlc, 64)
     counts = zeros(Int, nlc)
+    rem = nlc % 64
+    last_mask = rem == 0 ? typemax(UInt64) : (UInt64(1) << rem) - UInt64(1)
 
-    for c in 1:nhp
-        off = (c - 1) * w
-        for k in 1:w
-            word = chunks[off + k]
-            if word != 0
-                base_locus = (k - 1) * 64
-                for b in 0:63
-                    loc = base_locus + b + 1
-                    if loc <= nlc && ((word >> b) & 1) == 1
-                        counts[loc] += 1
-                    end
-                end
+    # Each task owns the 64 loci of word k, so counts never collide
+    Threads.@threads for k in 1:w
+        mask = k == w ? last_mask : typemax(UInt64)
+        base_locus = (k - 1) * 64
+        for c in 1:nhp
+            word = chunks[(c - 1) * w + k] & mask
+            while word != 0
+                counts[base_locus + trailing_zeros(word) + 1] += 1
+                word &= word - 1
             end
         end
     end
@@ -163,46 +162,35 @@ function _grm_from_haplotype_chunks(
     end
     c2 = T(4.0 * dot(q, q))
 
-    # 6. Parallel 4-way popcount pair dot products
-    G = zeros(T, nid, nid)
+    # 6. Parallel 4-way popcount pair dot products, VanRaden normalization
+    #    and optional blending with I, all fused per pair
+    G = Matrix{T}(undef, nid, nid)
+    blend = delta > 0.0
+    one_minus_d, tdelta = one(T) - T(delta), T(delta)
 
-    Threads.@threads for j in 1:nid
-        off_ja = (2j - 2) * w
-        off_jb = (2j - 1) * w
-        for i in 1:j
-            off_ia = (2i - 2) * w
-            off_ib = (2i - 1) * w
+    _foreach_upper_pair(nid, 2w * sizeof(UInt64)) do i, j
+        off_ia, off_ib = (2i - 2) * w, (2i - 1) * w
+        off_ja, off_jb = (2j - 2) * w, (2j - 1) * w
 
-            dot_count = 0
-            @inbounds @simd for k in 1:w
-                wa_i = masked_chunks[off_ia + k]
-                wb_i = masked_chunks[off_ib + k]
-                wa_j = masked_chunks[off_ja + k]
-                wb_j = masked_chunks[off_jb + k]
+        dot_count = 0
+        @inbounds @simd for k in 1:w
+            wa_i = masked_chunks[off_ia + k]
+            wb_i = masked_chunks[off_ib + k]
+            wa_j = masked_chunks[off_ja + k]
+            wb_j = masked_chunks[off_jb + k]
 
-                dot_count += count_ones(wa_i & wa_j) +
-                             count_ones(wa_i & wb_j) +
-                             count_ones(wb_i & wa_j) +
-                             count_ones(wb_i & wb_j)
-            end
-            G[i, j] = T(dot_count)
-            G[j, i] = G[i, j]
+            dot_count += count_ones(wa_i & wa_j) +
+                         count_ones(wa_i & wb_j) +
+                         count_ones(wb_i & wa_j) +
+                         count_ones(wb_i & wb_j)
         end
-    end
-
-    # 7. Final VanRaden normalization
-    G .-= c1
-    G .-= c1'
-    G .+= c2
-    G ./= d
-
-    # 8. Blending with identity matrix if delta > 0
-    if delta > 0.0
-        one_minus_d = one(T) - T(delta)
-        G .= one_minus_d .* G
-        for i in 1:nid
-            G[i, i] += T(delta)
+        g = (T(dot_count) - c1[i] - c1[j] + c2) / d
+        if blend
+            g = one_minus_d * g
+            i == j && (g += tdelta)
         end
+        G[i, j] = g
+        G[j, i] = g
     end
 
     return G

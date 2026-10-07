@@ -7,6 +7,56 @@ function inner_product(a::AbstractVector{Int8}, b::AbstractVector{Int8})
 end
 
 """
+    _grm_blocked!(G, gt, loci, tab, alpha; blk) -> G
+
+Fill `G` with `alpha * W'W`, where `W[k, j] = tab[gt[loci[k], j] + 1, k]`.
+
+`tab` is a `3 × length(loci)` table holding the coded value of dosages 0, 1
+and 2 at each retained locus, so all GRM models share one kernel. `W` is built
+one block of loci at a time and accumulated with `BLAS.syrk!`; the working
+memory is one `blk × nid` buffer instead of a full coded copy of `gt`. Element
+types without a BLAS kernel are accumulated in `Float64` and converted at the
+end. Dosages must lie in `0:2`.
+"""
+function _grm_blocked!(
+    G::AbstractMatrix{T},
+    gt::AbstractMatrix{Int8},
+    loci::AbstractVector{<:Integer},
+    tab::AbstractMatrix{Float64},
+    alpha::Real;
+    # ≥ 2^23 entries (64 MiB in Float64) or nid/8 loci, so each syrk pass over G is long
+    blk::Integer = max(2^26 ÷ (size(gt, 2) * 8), size(gt, 2) ÷ 8),
+) where {T<:AbstractFloat}
+    S = T <: BLAS.BlasReal ? T : Float64
+    nlc, nid = length(loci), size(gt, 2)
+    size(tab) == (3, nlc) || throw(DimensionMismatch("tab must be 3 × $nlc"))
+    stab = S.(tab)
+    blk = clamp(blk, 1, nlc)
+    W = Matrix{S}(undef, blk, nid)
+    acc = S === T ? G : zeros(S, nid, nid)
+    beta = zero(S)
+
+    for l0 in 1:blk:nlc
+        nb = min(blk, nlc - l0 + 1)
+        Threads.@threads for j in 1:nid
+            @inbounds for k in 1:nb
+                l = l0 + k - 1
+                W[k, j] = stab[gt[loci[l], j] + 1, l]
+            end
+        end
+        Wb = nb == blk ? W : view(W, 1:nb, :)
+        BLAS.syrk!('U', 'T', S(alpha), Wb, beta, acc)
+        beta = one(S)
+    end
+
+    for j in 1:nid, i in 1:(j-1)
+        acc[j, i] = acc[i, j]
+    end
+    S === T || (G .= acc)
+    return G
+end
+
+"""
     grm(gt::AbstractMatrix{Int8}, p::AbstractVector{Float64}; method::Symbol = :vanraden1, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
     grm(gt::AbstractMatrix{Int8}; method::Symbol = :vanraden1, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
@@ -18,7 +68,7 @@ If `p` is omitted, locus allele frequencies are automatically estimated from the
 - **Dimensions**: `(nlc × nid)` where rows are loci (SNPs) and columns are individuals.
 - **Type**: `AbstractMatrix{Int8}`.
 - **Dosage coding**: Elements must be integers `0`, `1`, or `2` representing the count of the alternate/counted allele (e.g. `0` = homozygous reference, `1` = heterozygous, `2` = homozygous alternate).
-- **Missing values**: Imputation must be performed prior to calling `grm`; no missing values are allowed.
+- **Missing values**: Imputation must be performed prior to calling `grm`; no missing values are allowed. Any dosage outside `0:2` (e.g. a `-1` or `9` missing code) throws an `ArgumentError`.
 
 # Methods (`method`)
 - `:vanraden1` (default): VanRaden (2008) Method 1 with shared denominator:
@@ -89,6 +139,11 @@ function grm(
     nlc = sum(v)
     nlc == 0 && error("No polymorphic loci found (0 < p < 1)")
     nid = size(gt, 2)
+    if !isempty(gt)
+        lo, hi = extrema(gt)
+        0 <= lo && hi <= 2 ||
+            throw(ArgumentError("Genotype dosages must be 0, 1 or 2; found values in $lo:$hi"))
+    end
 
     available_mem = 0.8 * Sys.free_memory()
     req_mem = nid * nid * sizeof(T)
@@ -98,101 +153,37 @@ function grm(
 
     G = zeros(T, nid, nid)
 
+    # Per-locus codes for dosages 0, 1, 2 (rows of tab) and the scale factor
+    loci = findall(v)
+    q = p[loci]
+    tab = Matrix{Float64}(undef, 3, nlc)
     if method == :vanraden1
-        t = Matrix{Int8}(gt[v, :])
-        q = Vector{Float64}(p[v])
-        d = T(2 * sum((1 .- q) .* q))
-
-        c1 = zeros(T, nid)
-        Threads.@threads for i in 1:nid
-            off_i = (i - 1) * nlc
-            acc_c1 = 0.0
-            @inbounds @simd for k in 1:nlc
-                acc_c1 += Float64(t[off_i + k]) * q[k]
-            end
-            c1[i] = T(2 * acc_c1)
+        # Centred dosages, shared denominator 2Σpq
+        for l in 1:nlc, g in 0:2
+            tab[g+1, l] = g - 2q[l]
         end
-        c2 = T(4 * dot(q, q))
-
-        Threads.@threads for j in 1:nid
-            off_j = (j - 1) * nlc
-            for i in 1:j
-                off_i = (i - 1) * nlc
-                acc = Int32(0)
-                @inbounds @simd for k in 1:nlc
-                    acc += Int32(t[off_i + k]) * Int32(t[off_j + k])
-                end
-                G[i, j] = T(acc)
-                G[j, i] = G[i, j]
-            end
-        end
-        G .-= c1
-        G .-= c1'
-        G .+= c2
-        G ./= d
+        alpha = 1 / (2 * sum(q .* (1 .- q)))
 
     elseif method == :vanraden2
         # Standardized Z where Z[l, i] = (gt[l, i] - 2p[l]) / sqrt(2p[l](1-p[l]))
-        q = p[v]
-        inv_sd = [1.0 / sqrt(2.0 * freq * (1.0 - freq)) for freq in q]
-        two_q = 2.0 .* q
-
-        Z = Matrix{T}(undef, nlc, nid)
-        Threads.@threads for j in 1:nid
-            col = view(gt, v, j)
-            @inbounds for l in 1:nlc
-                Z[l, j] = T((Float64(col[l]) - two_q[l]) * inv_sd[l])
-            end
+        for l in 1:nlc, g in 0:2
+            tab[g+1, l] = (g - 2q[l]) / sqrt(2q[l] * (1 - q[l]))
         end
-
-        if T === Float32 || T === Float64
-            BLAS.syrk!('U', 'T', T(1.0 / nlc), Z, T(0.0), G)
-            for j in 1:nid
-                for i in 1:(j-1)
-                    G[j, i] = G[i, j]
-                end
-            end
-        else
-            G .= (Z' * Z) ./ T(nlc)
-        end
+        alpha = 1 / nlc
 
     elseif method == :dominance
         # Dominance coding (Vitezica et al., 2013)
         # Dosage 0 -> -2p², dosage 1 -> 2p(1-p), dosage 2 -> -2(1-p)²
-        q = p[v]
-        d_denom = T(sum((2.0 .* q .* (1.0 .- q)) .^ 2))
-
-        W = Matrix{T}(undef, nlc, nid)
-        Threads.@threads for j in 1:nid
-            col = view(gt, v, j)
-            @inbounds for l in 1:nlc
-                freq = q[l]
-                one_minus_freq = 1.0 - freq
-                val = col[l]
-                w_val = if val == 0
-                    -2.0 * (freq^2)
-                elseif val == 1
-                    2.0 * freq * one_minus_freq
-                else
-                    -2.0 * (one_minus_freq^2)
-                end
-                W[l, j] = T(w_val)
-            end
+        for l in 1:nlc
+            tab[1, l] = -2 * q[l]^2
+            tab[2, l] = 2 * q[l] * (1 - q[l])
+            tab[3, l] = -2 * (1 - q[l])^2
         end
-
-        if T === Float32 || T === Float64
-            BLAS.syrk!('U', 'T', inv(d_denom), W, T(0.0), G)
-            for j in 1:nid
-                for i in 1:(j-1)
-                    G[j, i] = G[i, j]
-                end
-            end
-        else
-            G .= (W' * W) ./ d_denom
-        end
+        alpha = 1 / sum((2 .* q .* (1 .- q)) .^ 2)
     else
         error("Unknown GRM method: :$method (supported: :vanraden1, :vanraden2, :dominance)")
     end
+    _grm_blocked!(G, gt, loci, tab, alpha)
 
     # Apply blending if delta > 0
     if delta > 0.0

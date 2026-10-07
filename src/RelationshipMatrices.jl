@@ -5,6 +5,7 @@ using LinearAlgebra
 using SparseArrays
 using Statistics
 
+include("threads.jl")
 include("pedigree.jl")
 include("nrm.jl")
 include("nrm-diag.jl")

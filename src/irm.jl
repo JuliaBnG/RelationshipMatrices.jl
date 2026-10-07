@@ -62,20 +62,17 @@ function irm(
     IBD = Matrix{T}(undef, nid, nid)
     scale = T(0.5 / nlc)
 
-    Threads.@threads for j in 1:nid
-        ja, jb = 2j - 1, 2j
-        for i in 1:j
-            ia, ib = 2i - 1, 2i
-            matches = 0
-            @inbounds for l in 1:nlc
-                a, b = alleles[l, ia], alleles[l, ib]
-                c, d = alleles[l, ja], alleles[l, jb]
-                matches += (a == c) + (a == d) + (b == c) + (b == d)
-            end
-            value = scale * matches
-            IBD[i, j] = value
-            IBD[j, i] = value
+    _foreach_upper_pair(nid, 2nlc * sizeof(eltype(alleles))) do i, j
+        ia, ib, ja, jb = 2i - 1, 2i, 2j - 1, 2j
+        matches = 0
+        @inbounds for l in 1:nlc
+            a, b = alleles[l, ia], alleles[l, ib]
+            c, d = alleles[l, ja], alleles[l, jb]
+            matches += (a == c) + (a == d) + (b == c) + (b == d)
         end
+        value = scale * matches
+        IBD[i, j] = value
+        IBD[j, i] = value
     end
 
     return IBD
