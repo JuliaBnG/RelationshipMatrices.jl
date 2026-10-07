@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "RelationshipMatrices.jl"
+abstract: >-
+  Pedigree, genomic and realized identity-by-descent relationship
+  matrices for quantitative genetics in Julia: A, A⁻¹ and A₂₂, VanRaden
+  and dominance genomic relationship matrices, single-step H⁻¹, and
+  locus-level IBD from labelled founder alleles.
+type: software
+authors:
+  - family-names: "Yu"
+    given-names: "Xijiang"
+    orcid: "https://orcid.org/0000-0001-6508-9251"
+    # ROR: https://ror.org/04a1mvv97 (CFF 1.2.0 has no ROR field)
+    affiliation: "Norwegian University of Life Sciences"
+version: "0.5.0"
+date-released: "2026-10-07"
+license: MIT
+repository-code: "https://github.com/JuliaBnG/RelationshipMatrices.jl"
+url: "https://juliabng.github.io/RelationshipMatrices/"
+keywords:
+  - quantitative genetics
+  - relationship matrix
+  - pedigree
+  - genomic relationship matrix
+  - identity by descent
+  - single-step GBLUP
+  - Julia

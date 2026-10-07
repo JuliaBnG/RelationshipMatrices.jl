@@ -6,10 +6,16 @@ on:
   pull_request:
 jobs:
   test:
+    name: Julia ${{ matrix.version }} - ${{ matrix.threads }} thread(s)
     runs-on: ubuntu-latest
+    env:
+      # Threaded kernels (tiled pair loops, blocked syrk) only race under > 1 thread
+      JULIA_NUM_THREADS: ${{ matrix.threads }}
     strategy:
+      fail-fast: false
       matrix:
         version: ['1.10', '1']
+        threads: [1, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: julia-actions/setup-julia@v1
