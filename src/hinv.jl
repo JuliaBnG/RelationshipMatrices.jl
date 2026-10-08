@@ -124,3 +124,76 @@ end
 Standard uppercase alias for [`hinv`](@ref).
 """
 const Hinv = hinv
+
+"""
+    tune_grm(G::AbstractMatrix, A22::AbstractMatrix) -> (Gt, a, b)
+
+Tune a genomic relationship matrix to the pedigree base population so that it can
+be coherently combined with \$A_{22}\$ in Single-Step GBLUP (\$H^{-1}\$) (Vitezica et al., 2011;
+Chen et al., 2011; Christensen et al., 2012).
+
+# Mathematical & Statistical Background
+Genomic relationship matrices (\$G\$) computed from marker genotypes (e.g. via [`grm`](@ref))
+are defined relative to the allele frequencies of the genotyped sample (or fixed base frequencies),
+effectively assuming the genotyped cohort represents an unselected, non-inbred base population.
+In contrast, pedigree numerator relationships (\$A_{22}\$) are defined relative to ungenotyped
+founder animals several generations prior, across which selection and drift have accumulated
+inbreeding and coancestry.
+
+Directly blending or inverting incompatible \$G\$ and \$A_{22}\$ in \$H^{-1}\$ introduces bias
+and variance mismatch between genotyped and ungenotyped individuals. The affine transformation
+\$G_t = a\\mathbf{1}\\mathbf{1}' + b G\$ (written entrywise as \$a + b G\$) resolves this by solving
+the system:
+
+```math
+\\begin{aligned}
+a + b\\,\\overline{\\operatorname{diag}(G)} &= \\overline{\\operatorname{diag}(A_{22})}, \\\\
+a + b\\,\\overline{G} &= \\overline{A_{22}},
+\\end{aligned}
+```
+
+yielding:
+
+```math
+b = \\frac{\\overline{\\operatorname{diag}(A_{22})} - \\overline{A_{22}}}{\\overline{\\operatorname{diag}(G)} - \\overline{G}},
+\\qquad a = \\overline{A_{22}} - b\\,\\overline{G}.
+```
+
+The parameter \$b\$ scales the genomic variance to match the additive genetic variance
+implied by the pedigree, while \$a\$ accounts for the average relationship (coancestry)
+among the genotyped animals accumulated since the pedigree founder base.
+
+# Arguments
+- `G::AbstractMatrix`: Dense \$n_2 \\times n_2\$ genomic relationship matrix among genotyped individuals.
+- `A22::AbstractMatrix`: Dense \$n_2 \\times n_2\$ pedigree relationship submatrix among the same individuals (e.g. from [`nrm(ped, ids)`](@ref)).
+
+# Returns
+- `Gt::Matrix{Float64}`: Tuned genomic relationship matrix of size \$n_2 \\times n_2\$.
+- `a::Float64`: Intercept parameter adjusting for pedigree base coancestry.
+- `b::Float64`: Multiplicative scaling parameter matching additive genetic variance.
+
+# Examples
+```jldoctest
+using RelationshipMatrices, Statistics, LinearAlgebra
+
+G = [1.2 0.1; 0.1 0.8]
+A22 = [1.0 0.5; 0.5 1.0]
+
+Gt, a, b = tune_grm(G, A22)
+
+# Verify matching diagonal and global means
+mean(diag(Gt)) ≈ mean(diag(A22))
+mean(Gt) ≈ mean(A22)
+round.((a, b), digits = 3)
+# output
+(0.444, 0.556)
+```
+"""
+function tune_grm(G::AbstractMatrix, A22::AbstractMatrix)
+    size(G) == size(A22) || throw(DimensionMismatch("G and A22 differ in size"))
+    dg, og = mean(diag(G)), mean(G)
+    da, oa = mean(diag(A22)), mean(A22)
+    b = (da - oa) / (dg - og)
+    a = oa - b * og
+    a .+ b .* G, a, b
+end

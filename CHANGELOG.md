@@ -2,6 +2,33 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.6.0] - 2026-10-08
+
+Minor version bump: under Julia's semantic versioning for 0.x releases,
+0.5 → 0.6 is a breaking boundary. No existing function changes
+signature or result, but ten names are newly exported and may clash
+with names in downstream code, so dependants opt in through `compat`.
+
+### Added
+- `ainv_upg`: A⁻¹ with unknown parent groups (QP transformation),
+  groups coded `-g` in `:sire`/`:dam`.
+- `group_contributions`: group contribution matrix Q = TQ*.
+- `ainv_smgs`: sire–maternal-grandsire A⁻¹ with groups, as used in
+  sire models and MACE.
+- `tune_grm`: tune G to the pedigree base of A₂₂ (Chen et al., 2011;
+  Christensen et al., 2012), for use with `hinv`.
+- `apy_ginv`: G⁻¹ by the APY algorithm (Misztal et al., 2014).
+- `drm`: pedigree dominance relationship matrix (Cockerham, 1954).
+- `epistatic_grm`: Hadamard-product epistatic relationship matrices.
+- `partial_nrm`, `breed_composition`, `segregation_coefficients`:
+  breed-specific partial relationship matrices for multibreed and
+  breed-of-origin models (García-Cortés and Toro, 2006; Christensen et
+  al., 2014).
+- Tests for all of the above, including the identity
+  A⁻¹ₙₙQ + A⁻¹ₙₚ = 0, inv(A⁻¹_SMGS) = TDT′, exact APY inverse with a
+  full core, and `partial_nrm(ped, ones(N)) == nrm(ped)`; values of
+  Mrode and Pocrnic (2023), Chapters 4, 6, 12, 13 and 14.
+
 ## [v0.5.0] - 2026-10-07
 
 ### Changed

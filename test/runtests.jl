@@ -357,4 +357,126 @@ using Test
         @test grm(alleles; p = p) ≈ grm(dosages, p)
         @test_throws ArgumentError grm(zeros(UInt32, 1, 3))
     end
+
+    @testset "Unknown parent groups (QP transformation)" begin
+        # Mrode Example 4.4 and a random pedigree with groups coded −g
+        ped = DataFrame(sire = [-1, -1, -1, 1, 3, 1, 4, 3], dam = [-2, -2, -2, -2, 2, 2, 5, 6])
+        Ai = Matrix(ainv_upg(ped))
+        @test size(Ai) == (10, 10)
+        @test issymmetric(Ai)
+        @test round.(Ai[10, :], digits = 2) ≈ [-0.17, -0.5, -0.5, -0.67, 0, 0, 0, 0, 0.75, 1.08]
+        ped0 = DataFrame(sire = max.(ped.sire, 0), dam = max.(ped.dam, 0))
+        @test Ai[1:8, 1:8] ≈ Matrix(ainv(ped0))
+        Q = group_contributions(ped)
+        @test all(sum(Q; dims = 2) .≈ 1)
+        @test Ai[1:8, 1:8] * Q + Ai[1:8, 9:10] ≈ zeros(8, 2) atol = 1e-12
+
+        N, ng = 60, 3
+        s = zeros(Int, N); d = zeros(Int, N)
+        for i in 1:N
+            s[i] = i > 10 && rand() < 0.8 ? rand(1:i-1) : -rand(1:ng)
+            d[i] = i > 10 && rand() < 0.7 ? rand(1:i-1) : -rand(1:ng)
+        end
+        pg = DataFrame(sire = s, dam = d)
+        Ag = Matrix(ainv_upg(pg))
+        Qg = group_contributions(pg)
+        @test Ag[1:N, 1:N] * Qg + Ag[1:N, N+1:end] ≈ zeros(N, ng) atol = 1e-10
+        @test Ag[1:N, 1:N] ≈ Matrix(ainv(DataFrame(sire = max.(s, 0), dam = max.(d, 0))))
+    end
+
+    @testset "Sire–maternal grandsire A⁻¹" begin
+        # inv(A⁻¹) = T D T' with T⁻¹ = I − P (½ to sire, ¼ to MGS)
+        sire = [0, 0, 1, 2, 3, 2]
+        mgs = [0, 0, 0, 1, 2, 3]
+        Ai = Matrix(ainv_smgs(DataFrame(; sire, mgs)))
+        N = length(sire)
+        P = zeros(N, N)
+        dd = zeros(N)
+        for i in 1:N
+            sire[i] > 0 && (P[i, sire[i]] = 0.5)
+            mgs[i] > 0 && (P[i, mgs[i]] = 0.25)
+            dd[i] = 1 - (sire[i] > 0 ? 0.25 : 0) - (mgs[i] > 0 ? 0.0625 : 0)
+        end
+        T = inv(I - P)
+        @test inv(Ai) ≈ T * Diagonal(dd) * T'
+        @test round.(Ai[1, :], digits = 3) ≈ [1.424, 0.182, -0.667, -0.364, 0, 0]
+        # with groups: rows of a bull sum (over bull, sire, MGS, MGD) to zero
+        pg = DataFrame(sire = [7, 8, 7, 1, 8, 1, -1, -1, -1],
+                       mgs = [-3, 9, 2, -2, -3, 9, -2, -2, -3],
+                       mgd = [-5, -5, -5, -5, -4, -4, -4, -4, -4])
+        Ag = Matrix(ainv_smgs(pg))
+        @test size(Ag) == (14, 14)
+        @test issymmetric(Ag)
+        @test sum(Ag; dims = 2) ≈ zeros(14) atol = 1e-12
+    end
+
+    @testset "Tuning G to A22 and APY inverse" begin
+        nlc, nid = 200, 40
+        gt = rand(0:2, nlc, nid) .|> Int8
+        G = grm(gt) + 0.01I
+        A22 = Matrix(Symmetric(0.5I + 0.5 * ones(nid, nid) .* 0.2))
+        Gt, a, b = tune_grm(G, A22)
+        @test mean(diag(Gt)) ≈ mean(diag(A22))
+        @test mean(Gt) ≈ mean(A22)
+        @test Gt ≈ a .+ b .* G
+        # all individuals in the core: exact inverse
+        @test Matrix(apy_ginv(G, 1:nid)) ≈ inv(G)
+        # general core set against the factorized definition
+        core = [3, 7, 11, 19, 25, 31]
+        nc = setdiff(1:nid, core)
+        Gi = Matrix(apy_ginv(G, core))
+        Pnc = G[nc, core] / G[core, core]
+        m = [G[j, j] - G[j, core]' * (G[core, core] \ G[core, j]) for j in nc]
+        o = [core; nc]
+        Tm = [I zeros(length(core), length(nc)); -Pnc I]
+        D = cat(G[core, core], Diagonal(m); dims = (1, 2))
+        @test Gi[o, o] ≈ Tm' * inv(D) * Tm
+        @test count(!iszero, Gi[nc, nc] - Diagonal(diag(Gi[nc, nc]))) == 0
+        @test_throws ArgumentError apy_ginv(G, [1, 1])
+    end
+
+    @testset "Dominance and epistatic relationships" begin
+        ped = DataFrame(sire = [0, 0, 0, 1, 1, 1, 3, 4],
+                        dam = [0, 0, 0, 2, 2, 0, 2, 5])
+        D = drm(ped)
+        A = nrm(ped)
+        @test issymmetric(D)
+        @test all(diag(D) .== 1)
+        @test D[4, 5] ≈ 0.25                     # full sibs
+        @test D[4, 6] ≈ 0.0                      # half sibs
+        @test D[1, 4] ≈ 0.0                      # parent–offspring
+        @test D[7, 8] ≈ 0.25 * (A[3, 4] * A[2, 5] + A[3, 5] * A[2, 4])
+        # Mrode Example 13.1
+        p13 = DataFrame(sire = [0, 0, 0, 0, 1, 3, 6, 0, 3, 3, 6, 6],
+                        dam = [0, 0, 0, 0, 2, 4, 5, 5, 8, 8, 8, 8])
+        @test drm(p13)[11, 7:12] ≈ [0.125, 0, 0.125, 0.125, 1, 0.25]
+        gt = rand(0:2, 100, 20) .|> Int8
+        G = grm(gt)
+        Gaa = epistatic_grm(G)
+        @test mean(diag(Gaa)) ≈ 1
+        @test Gaa ≈ (G .* G) ./ mean(diag(G .* G))
+        Gad = epistatic_grm(G, grm(gt; method = :dominance))
+        @test issymmetric(Gad)
+        @test_throws DimensionMismatch epistatic_grm(G, G[1:5, 1:5])
+    end
+
+    @testset "Partial (breed-specific) relationship matrices" begin
+        ped = DataFrame(sire = [0, 0, 0, 0, 1, 3, 3, 5, 7, 9, 5],
+                        dam = [0, 0, 0, 0, 2, 2, 4, 6, 6, 8, 8])
+        @test partial_nrm(ped, ones(11)) ≈ nrm(ped)
+        founder = zeros(11, 2)
+        founder[1:2, 1] .= 1
+        founder[3:4, 2] .= 1
+        F = breed_composition(ped, founder)
+        @test all(sum(F; dims = 2) .≈ 1)
+        @test F[11, :] ≈ [0.875, 0.125]
+        h = segregation_coefficients(ped, F, 1, 2)
+        @test h ≈ [0, 0, 0, 0, 0, 0, 0, 0.5, 0.5, 0.75, 0.375]
+        A1 = partial_nrm(ped, F[:, 1])
+        @test all(A1[[3, 4, 7], :] .== 0)           # no breed-1 genes
+        @test round.(A1[11, :], digits = 3) ≈
+              [0.375, 0.5, 0, 0, 0.812, 0.312, 0, 0.75, 0.156, 0.453, 1.188]
+        @test round.(partial_nrm(ped, h)[11, :], digits = 3) ≈
+              [0, 0, 0, 0, 0, 0, 0, 0.25, 0, 0.125, 0.375]
+    end
 end

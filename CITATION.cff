@@ -13,8 +13,8 @@ authors:
     orcid: "https://orcid.org/0000-0001-6508-9251"
     # ROR: https://ror.org/04a1mvv97 (CFF 1.2.0 has no ROR field)
     affiliation: "Norwegian University of Life Sciences"
-version: "0.5.0"
-date-released: "2026-10-07"
+version: "0.6.0"
+date-released: "2026-10-08"
 license: MIT
 repository-code: "https://github.com/JuliaBnG/RelationshipMatrices.jl"
 url: "https://juliabng.github.io/RelationshipMatrices/"
