@@ -109,6 +109,11 @@ A22 = nrm(ped, [3, 4])
 """
 function nrm(ped::DataFrame, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64)
     validate_pedigree(ped)
+    return _nrm_subset(ped, ids, T)
+end
+
+# Colleau `nrm(ped, ids)` on a pedigree the caller has already validated.
+function _nrm_subset(ped::DataFrame, ids::AbstractVector{<:Integer}, ::Type{T}) where {T<:AbstractFloat}
     N = size(ped, 1)
     n2 = length(ids)
 
@@ -130,7 +135,7 @@ function nrm(ped::DataFrame, ids::AbstractVector{<:Integer}; T::Type{<:AbstractF
 
     K = zeros(Float64, N)
     if max_parent > 0
-        copyto!(view(K, 1:max_parent), nrm_diag(ped; m = max_parent))
+        copyto!(view(K, 1:max_parent), _nrm_diag(ped, max_parent))
     end
 
     D = zeros(Float64, N)

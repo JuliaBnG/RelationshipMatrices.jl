@@ -79,10 +79,10 @@ function hinv(
     0.0 <= delta < 1.0 || throw(ArgumentError("Blending parameter delta must be in [0, 1)"))
 
     # 1. Compute full sparse Ainv
-    A_inv = ainv(ped)
+    A_inv = _ainv(ped, false)
 
     # 2. Extract A22 submatrix via Colleau indirect method
-    A22 = nrm(ped, genotyped_ids; T = T)
+    A22 = _nrm_subset(ped, genotyped_ids, T)
 
     # 3. Optional blending G* = (1-δ)G + δ*A22
     G_blend = delta > 0.0 ? (one(T) - T(delta)) .* Matrix{T}(G) .+ T(delta) .* A22 : Matrix{T}(G)

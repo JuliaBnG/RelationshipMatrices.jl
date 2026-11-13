@@ -2,6 +2,16 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.6.2] - unreleased
+
+### Changed
+- `ainv`, `nrm(ped, ids)` and `hinv` validate the pedigree once per
+  call. `hinv` used to validate it five times and `ainv` twice.
+- `ainv(ped; verbose = true)` reports progress with `@info` instead of
+  printing to `stdout`.
+- Compat entries for the standard libraries; the tests run Aqua.jl.
+- The roadmap page describes the package as of this release.
+
 ## [v0.6.0] - 2026-10-08
 
 Minor version bump: under Julia's semantic versioning for 0.x releases,

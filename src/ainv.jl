@@ -17,7 +17,7 @@ Compute the sparse inverse of the numerator relationship matrix (\$A^{-1}\$) dir
 
 # Arguments
 - `ped::DataFrame`: Pedigree table with `:sire` and `:dam` columns meeting the requirements above.
-- `verbose::Bool`: If `true`, displays progress percentage during calculation (default: `false`).
+- `verbose::Bool`: If `true`, logs progress with `@info` at every 10% (default: `false`).
 
 # Returns
 - `SparseMatrixCSC{Float64, Int32}`: An \$N \\times N\$ sparse symmetric matrix representing \$A^{-1}\$.
@@ -54,16 +54,21 @@ Matrix(A_inv)
 """
 function ainv(ped::DataFrame; verbose::Bool = false)
     validate_pedigree(ped)
+    return _ainv(ped, verbose)
+end
+
+# `ainv` on a pedigree the caller has already validated.
+function _ainv(ped::DataFrame, verbose::Bool)
     nid = size(ped, 1)
     ped_matrix = Matrix{Int32}(select(ped, [:sire, :dam]))
     j = maximum(ped_matrix) + 1 # typically K of the last generation are not needed
     if verbose
-        @info "  - Calculating A inverse of $(nid) individuals"
+        @info "Calculating A inverse of $(nid) individuals"
     end
     iid = nid ÷ 10
     iid == 0 && (iid = 1) # to show progress
     K = zeros(nid)
-    copyto!(view(K, 1:j), nrm_diag(ped; m = j))
+    copyto!(view(K, 1:j), _nrm_diag(ped, j))
 
     # Preallocate arrays with sizehint for Henderson's 3x3 contributions (at most 9 entries per animal)
     max_entries = 9 * nid
@@ -74,12 +79,9 @@ function ainv(ped::DataFrame; verbose::Bool = false)
     sizehint!(J, max_entries)
     sizehint!(V, max_entries)
 
-    if verbose
-        print(' '^8)
-    end
     for (i, (s, d)) in enumerate(eachrow(ped_matrix))
         if verbose && i % iid == 0
-            print(' ', Int(round(i / nid * 100)))
+            @info "A inverse: $(round(Int, i / nid * 100))%"
         end
         x = 1.0
         if s > 0
@@ -114,9 +116,6 @@ function ainv(ped::DataFrame; verbose::Bool = false)
             push!(I, Int32(s)); push!(J, Int32(d)); push!(V, 0.25 * alpha)
             push!(I, Int32(d)); push!(J, Int32(s)); push!(V, 0.25 * alpha)
         end
-    end
-    if verbose
-        println('%')
     end
 
     return sparse(I, J, V, nid, nid)
