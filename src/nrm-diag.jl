@@ -1,7 +1,7 @@
 """
     nrm_diag(ped::DataFrame; m::Integer = -1) -> Vector{Float64}
 
-Calculate the diagonal elements of the numerator relationship matrix (\$A\$) using multi-threaded recursive kinship evaluation.
+Calculate the diagonal elements of the numerator relationship matrix (\$A\$) by the algorithm of Meuwissen and Luo (1992).
 
 Each diagonal element equals \$A_{ii} = 1 + F_i\$, where \$F_i\$ is Wright's inbreeding coefficient for individual \$i\$. The inbreeding coefficient is half the additive relationship between the parents:
 \$F_i = 0.5 A_{sire_i, dam_i}\$.
@@ -53,20 +53,87 @@ end
 
 # `nrm_diag` on a pedigree the caller has already validated.
 function _nrm_diag(ped::DataFrame, m)
-    N = m == -1 ? size(ped, 1) : m
-    diag_A = Vector{Float64}(undef, N)
-    ped_matrix = Matrix{Int32}(select(ped, [:sire, :dam]))
+    N = m == -1 ? size(ped, 1) : Int(m)
+    return _meuwissen_luo(ped[!, :sire], ped[!, :dam], N)
+end
 
-    memo_dict = Dict{Int64,Float64}()
-    dict_lock = ReentrantLock()
-
-    Threads.@threads for i = 1:N
-        sire = ped_matrix[i, 1]
-        dam = ped_matrix[i, 2]
-        parent_relationship =
-            kinship_threaded_memo(ped_matrix, sire, dam, memo_dict, dict_lock)
-        diag_A[i] = 1.0 + 0.5 * parent_relationship
+# Diagonal of A for animals 1:N by the algorithm of Meuwissen and Luo (1992):
+# A_ii = Σ_j L_ij² D_j, where row i of L (the contributions of the ancestors
+# of i) is built by visiting ancestors from the youngest to the oldest, and
+# D_j = 1 - (A_ss + A_dd)/4 is the Mendelian sampling variance of j. Parents
+# must precede offspring. Full sibs share one computation.
+function _meuwissen_luo(sire::AbstractVector{<:Integer}, dam::AbstractVector{<:Integer}, N::Int)
+    K = Vector{Float64}(undef, N)          # A_ii
+    D = Vector{Float64}(undef, N)
+    L = zeros(Float64, N)
+    queued = falses(N)
+    heap = Int32[]                         # max-heap of ancestors still to visit
+    sizehint!(heap, 1024)
+    family = Dict{Tuple{Int32,Int32},Float64}()
+    @inbounds for i = 1:N
+        s, d = Int32(sire[i]), Int32(dam[i])
+        D[i] = 1.0 - 0.25 * ((s > 0 ? K[s] : 0.0) + (d > 0 ? K[d] : 0.0))
+        if s == 0 || d == 0
+            K[i] = 1.0
+            continue
+        end
+        key = (s, d)
+        k = get(family, key, -1.0)
+        if k >= 0
+            K[i] = k
+            continue
+        end
+        acc = 0.0
+        L[i] = 1.0
+        _heap_push!(heap, Int32(i))
+        while !isempty(heap)
+            j = _heap_pop!(heap)
+            r = L[j]
+            L[j] = 0.0
+            queued[j] = false
+            acc += r * r * D[j]
+            for p in (Int32(sire[j]), Int32(dam[j]))
+                p > 0 || continue
+                L[p] += 0.5 * r
+                if !queued[p]
+                    queued[p] = true
+                    _heap_push!(heap, p)
+                end
+            end
+        end
+        K[i] = acc
+        family[key] = acc
     end
+    return K
+end
 
-    return diag_A
+@inline function _heap_push!(h::Vector{Int32}, x::Int32)
+    push!(h, x)
+    c = length(h)
+    @inbounds while c > 1
+        p = c >>> 1
+        h[p] >= x && break
+        h[c] = h[p]
+        c = p
+    end
+    @inbounds h[c] = x
+    return h
+end
+
+@inline function _heap_pop!(h::Vector{Int32})
+    @inbounds top = h[1]
+    x = pop!(h)
+    n = length(h)
+    n == 0 && return top
+    p = 1
+    @inbounds while true
+        c = 2p
+        c > n && break
+        (c < n && h[c+1] > h[c]) && (c += 1)
+        h[c] <= x && break
+        h[p] = h[c]
+        p = c
+    end
+    @inbounds h[p] = x
+    return top
 end
