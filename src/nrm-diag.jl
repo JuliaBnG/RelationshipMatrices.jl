@@ -48,6 +48,11 @@ diag_A = nrm_diag(ped)
 """
 function nrm_diag(ped::DataFrame; m = -1)
     validate_pedigree(ped)
+    return _nrm_diag(ped, m)
+end
+
+# `nrm_diag` on a pedigree the caller has already validated.
+function _nrm_diag(ped::DataFrame, m)
     N = m == -1 ? size(ped, 1) : m
     diag_A = Vector{Float64}(undef, N)
     ped_matrix = Matrix{Int32}(select(ped, [:sire, :dam]))

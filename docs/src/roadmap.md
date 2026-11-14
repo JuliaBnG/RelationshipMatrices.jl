@@ -25,12 +25,14 @@ $I_{\text{seg}}$ on identical individuals without format conversion.
 Mixed-model fitting is out of scope; the package supplies matrices and
 inverses to solvers such as JWAS.jl or BLUPF90.
 
-## Current state (v0.5.0)
+## Current state (v0.6.2)
 
 | Area | Implemented |
 |---|---|
 | Pedigree | dense $A$; Colleau (2002) $A_{22}$ without full $A$; sparse $A^{-1}$ (Henderson 1976); $1 + F_i$; pairwise kinship |
-| Single-step | $H^{-1}$ with $G^* = (1 - \delta) G + \delta A_{22}$ |
+| Groups | $A^{-1}$ with unknown-parent groups (`ainv_upg`, QP transformation); group contributions $Q$; sire–maternal-grandsire $A^{-1}$ (`ainv_smgs`) |
+| Non-additive and multibreed | pedigree dominance $D$ (`drm`); epistatic Hadamard products (`epistatic_grm`); partial relationship matrices, breed composition and segregation coefficients |
+| Single-step | $H^{-1}$ with $G^* = (1 - \delta) G + \delta A_{22}$; tuning of $G$ to $A_{22}$ (`tune_grm`); APY $G^{-1}$ (`apy_ginv`). `hinv` does not yet call the last two |
 | Genomic | VanRaden 1 and 2, dominance (Vitezica et al. 2013); blocked BLAS `syrk` over loci; bit-packed popcount GRM for `BnGStructs` |
 | IBD | `irm` from unsigned founder labels; `grm` decoding bit 0 of the same labels |
 | Performance | cache-tiled, thread-balanced pairwise kernels; regression benchmarks in `bench/` |
@@ -41,11 +43,11 @@ inverses to solvers such as JWAS.jl or BLUPF90.
 |---|---|---|---|---|---|---|---|---|
 | $A$, $A^{-1}$, $F$ | yes | yes | kinship | fast kinship | yes | yes | yes | – |
 | $A_{22}$ without full $A$ | yes | ? | – | subset kinship | – | – | yes | – |
-| Genetic groups, metafounders | no | groups | – | – | yes | – | yes | – |
-| Non-additive pedigree ($D$, sex-linked $S$) | no | – | identity coefficients | identity coefficients | yes | yes | – | – |
-| $G$ estimators | VR1, VR2, dominance | VR1 | GRM, MoM, robust | – | – | ~15, polyploid | yes | Yang, KING |
+| Genetic groups, metafounders | groups | groups | – | – | yes | – | yes | – |
+| Non-additive pedigree ($D$, sex-linked $S$) | $D$ | – | identity coefficients | identity coefficients | yes | yes | – | – |
+| $G$ estimators | VR1, VR2, dominance, epistatic | VR1 | GRM, MoM, robust | – | – | ~15, polyploid | yes | Yang, KING |
 | Missing genotypes | no | yes | yes | – | – | yes | yes | yes |
-| $H^{-1}$ | basic | yes | – | – | – | Munoz, Martini | $\tau$/$\omega$, tuned $G$, APY | – |
+| $H^{-1}$ | basic; tuned $G$ and APY as separate calls | yes | – | – | – | Munoz, Martini | $\tau$/$\omega$, tuned $G$, APY | – |
 | Out-of-core | no | – | memory-mapped `.bed` | – | – | – | partial | yes |
 | Packed-bit GRM | yes | – | 2-bit `.bed` | – | – | – | – | yes |
 | Realized IBD from founder labels | yes | – | – | – | – | – | – | – |
@@ -59,10 +61,13 @@ the closest analogues, neither in Julia. Colleau $A_{22}$ and a one-call
 $H^{-1}$ in a small, MIT-licensed pure-Julia library with doctested
 documentation are also uncommon.
 
-**Gaps.** Production single-step evaluation needs genetic groups or
-metafounders, $G$ tuning to $A_{22}$, $\tau$/$\omega$ weights, APY and
-missing-genotype handling. Breadth of $G$ estimators, polyploidy and
-out-of-core data are behind AGHmatrix, PLINK2 and GCTA.
+**Gaps.** Production single-step evaluation still needs a `hinv` that
+inverts through Cholesky and fails on a matrix that is not positive
+definite, $\tau$/$\omega$ weights, tuning and APY inside the same call,
+metafounders, and missing-genotype handling. Pedigrees must already be
+numbered `1:N` with parents first; there is no renumbering helper.
+Breadth of $G$ estimators, polyploidy and out-of-core data are behind
+AGHmatrix, PLINK2 and GCTA.
 
 ## Design principles
 
@@ -80,7 +85,10 @@ out-of-core data are behind AGHmatrix, PLINK2 and GCTA.
 
 ## Track A: robustness and API
 
-Small changes that remove friction for existing users.
+Small changes that remove friction for existing users. Item 6 is done
+in part (v0.6.2): `ainv`, `nrm(ped, ids)` and `hinv` validate the
+pedigree once per call instead of once per internal step. The others
+are open.
 
 1. **`hinv` numerics**: invert $G^*$ and $A_{22}$ through Cholesky
    (LAPACK `potri`) and fail clearly when either is not positive
@@ -155,7 +163,10 @@ Design decisions to fix before implementation:
 
 ## Track C: single-step completeness
 
-Needed for production ssGBLUP; ordered by expected use.
+Needed for production ssGBLUP; ordered by expected use. Items 1, 3 and 5
+shipped in v0.6.0 as `tune_grm`, `ainv_upg` (without fuzzy
+classification) and `apy_ginv`. What remains is to make `hinv` use
+them, and items 2 and 4.
 
 1. **$G$ tuning to $A_{22}$**: match mean diagonal and off-diagonal
    (Vitezica et al. 2011; Christensen et al. 2012), giving
@@ -171,6 +182,8 @@ Needed for production ssGBLUP; ordered by expected use.
 
 ## Track D: genomic relationship breadth
 
+Item 3 shipped in v0.6.0 (`epistatic_grm`).
+
 1. **Missing genotypes**: per-pair or per-locus handling with a
    documented estimator, rather than requiring prior imputation.
 2. **Additional estimators**: Yang et al. (2010) / GCTA, and the
@@ -185,7 +198,8 @@ Needed for production ssGBLUP; ordered by expected use.
 
 Lower priority, mainly for wild-population animal models.
 
-- Dominance $D$ from coefficients of fraternity, and its inverse.
+- Dominance $D$ from coefficients of fraternity: done in v0.6.0 (`drm`).
+  Its inverse is open.
 - Sex-linked additive $S$ for the shared sex chromosome.
 
 ## Validation and documentation
@@ -216,12 +230,13 @@ Validation is statistical, not only numerical.
 
 | Release | Contents |
 |---|---|
-| v0.6 | Track A items 1–3 and 6–7; B1 segment structures |
-| v0.7 | B2 segment-level IBD; $E[I] = A$ validation; tutorial |
-| v0.8 | C1–C2 tuning and weights; A4–A5 pedigree input and renumbering |
-| v0.9 | B3 ROH; D1 missing genotypes |
-| later | C3–C5 groups, metafounders, APY; D2–D4; Track E as needed |
+| v0.6.2 | Housekeeping: pedigree validated once per call, progress through logging, Aqua, this page brought up to date |
+| v0.7 | Single-step that can be trusted: A1–A2 (`hinv` through Cholesky, sparse $A_{22}^{-1}$), C2 ($\tau$/$\omega$), `hinv` calling `tune_grm` and `apy_ginv`; A4–A5 (vector input, renumbering; DataFrames to an extension); A7 |
+| v0.8 | B1–B2 segment-level IBD, with the input agreed with BnGsim: its gene drop already records, per gamete, the parent, the starting haplotype and the crossover positions, which with the pedigree determine founder segments. $E[I] = A$ and Hill–Weir variance validation; tutorial |
+| v0.9 | B3 ROH; D1 missing genotypes; C4 metafounders |
+| later | A3 Colleau batching; D2, D4; Track E inverse of $D$ and sex-linked $S$ |
 
-The order puts the package's distinctive strength (IBD and segments)
-alongside low-cost robustness fixes, and defers the large single-step
-items until the core API is stable.
+The order puts single-step robustness first, because BnGsim's breeding
+loop will call `hinv` every generation and a silent failure there is
+costly; the segment-level IBD work follows once BnGsim supplies its
+input.

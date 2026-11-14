@@ -3,8 +3,13 @@ using RelationshipMatrices
 using LinearAlgebra
 using Statistics
 using Test
+using Aqua
 
 @testset "RelationshipMatrices test suite" begin
+
+    @testset "Aqua" begin
+        Aqua.test_all(RelationshipMatrices)
+    end
 
     @testset "GRM basic equivalence" begin
         nlc, nid = 120, 30
