@@ -1,6 +1,6 @@
 """
-    hinv(ped::DataFrame, G::AbstractMatrix{<:Real}, genotyped_ids::AbstractVector{<:Integer}; delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> SparseMatrixCSC{T, Int32}
-    Hinv(ped::DataFrame, G::AbstractMatrix{<:Real}, genotyped_ids::AbstractVector{<:Integer}; delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> SparseMatrixCSC{T, Int32}
+    hinv(ped::DataFrame, G, genotyped_ids; delta = 0.0, tau = 1.0, omega = 1.0, tune = false, core = nothing, T = Float64) -> SparseMatrixCSC{T, Int32}
+    Hinv(ped::DataFrame, G, genotyped_ids; kwargs...) -> SparseMatrixCSC{T, Int32}
 
 Compute the sparse inverse of the combined pedigree-genomic relationship matrix (\$H^{-1}\$) for Single-Step Genomic BLUP (ssGBLUP; Legarra et al., 2009; Aguilar et al., 2010; Christensen and Lund, 2010).
 
@@ -30,10 +30,20 @@ where:
 - `G::AbstractMatrix{<:Real}`: Genomic relationship matrix for genotyped individuals (\$n_2 \\times n_2\$).
 - `genotyped_ids::AbstractVector{<:Integer}`: Vector of length \$n_2\$ listing row indices in `ped` for each entry in `G`.
 - `delta::Real`: Blending weight \$\\delta \\in [0, 1)\$ with \$A_{22}\$ (default: `0.0`).
+- `tau::Real`, `omega::Real`: Scaling of the genomic and pedigree parts, \$H^{-1} = A^{-1} + \\mathrm{diag}(0,\\ \\tau (G^*)^{-1} - \\omega A_{22}^{-1})\$ (defaults `1.0`; Tsuruta et al., 2011). `tau > 0`, `omega ≤ 1`.
+- `tune::Bool`: Tune `G` to the scale of \$A_{22}\$ with [`tune_grm`](@ref) before blending (default: `false`).
+- `core`: Indices **within the genotyped set** (`1:n₂`) of the core animals; \$(G^*)^{-1}\$ is then the APY inverse from [`apy_ginv`](@ref) (default: `nothing`, the exact inverse).
 - `T::Type{<:AbstractFloat}`: Floating point type for inversions and output (default: `Float64`).
 
 # Returns
 - `SparseMatrixCSC{T, Int32}`: Sparse symmetric \$N \\times N\$ matrix representing \$H^{-1}\$.
+
+# Numerical behaviour
+\$G^*\$ and \$A_{22}\$ are inverted through their Cholesky factors. A matrix
+that is not positive definite throws an `ArgumentError` that says which
+one and what to do, instead of returning the inverse of a singular or
+indefinite matrix. A raw VanRaden \$G\$ centred on the sample frequencies
+is singular, so it needs `delta > 0`. The result is exactly symmetric.
 
 # Examples
 ```jldoctest
@@ -67,6 +77,10 @@ function hinv(
     G::AbstractMatrix{<:Real},
     genotyped_ids::AbstractVector{<:Integer};
     delta::Real = 0.0,
+    tau::Real = 1.0,
+    omega::Real = 1.0,
+    tune::Bool = false,
+    core::Union{Nothing,AbstractVector{<:Integer}} = nothing,
     T::Type{<:AbstractFloat} = Float64,
 )
     validate_pedigree(ped)
@@ -76,50 +90,63 @@ function hinv(
         throw(DimensionMismatch("Size of G ($(size(G))) must match length of genotyped_ids ($n2)"))
     length(unique(genotyped_ids)) == n2 ||
         throw(ArgumentError("genotyped_ids must be unique"))
+    all(i -> 1 <= i <= N, genotyped_ids) ||
+        throw(ArgumentError("genotyped_ids must be rows of the pedigree (1:$N)"))
     0.0 <= delta < 1.0 || throw(ArgumentError("Blending parameter delta must be in [0, 1)"))
+    (isfinite(tau) && tau > 0) || throw(ArgumentError("tau must be positive"))
+    (isfinite(omega) && omega <= 1) || throw(ArgumentError("omega must not exceed 1"))
 
-    # 1. Compute full sparse Ainv
     A_inv = _ainv(ped, false)
-
-    # 2. Extract A22 submatrix via Colleau indirect method
     A22 = _nrm_subset(ped, genotyped_ids, T)
+    G_use = tune ? Matrix{T}(first(tune_grm(G, A22))) : Matrix{T}(G)
+    G_blend = delta > 0.0 ? (one(T) - T(delta)) .* G_use .+ T(delta) .* A22 : G_use
 
-    # 3. Optional blending G* = (1-δ)G + δ*A22
-    G_blend = delta > 0.0 ? (one(T) - T(delta)) .* Matrix{T}(G) .+ T(delta) .* A22 : Matrix{T}(G)
-
-    # 4. Dense inversions of n2 × n2 submatrices
-    G_inv = inv(G_blend)
-    A22_inv = inv(A22)
-    Delta_G = G_inv .- A22_inv
-
-    # 5. Add Delta_G into sparse A_inv at genotyped_ids coordinates
-    I_a, J_a, V_a = findnz(A_inv)
-
-    I_all = Int32.(I_a)
-    J_all = Int32.(J_a)
-    V_all = T.(V_a)
-    sizehint!(I_all, length(I_a) + n2 * n2)
-    sizehint!(J_all, length(J_a) + n2 * n2)
-    sizehint!(V_all, length(V_a) + n2 * n2)
-
-    for c in 1:n2
-        j_id = genotyped_ids[c]
-        for r in 1:n2
-            i_id = genotyped_ids[r]
-            val = Delta_G[r, c]
-            if !iszero(val)
-                push!(I_all, Int32(i_id))
-                push!(J_all, Int32(j_id))
-                push!(V_all, T(val))
-            end
-        end
+    FA = cholesky(Symmetric(A22); check = false)
+    _is_spd(FA, A22) || throw(ArgumentError(
+        "A22 is not positive definite: the genotyped animals include identical pedigree entries " *
+        "(clones or duplicated animals)"))
+    Delta_G = if core === nothing
+        FG = cholesky(Symmetric(G_blend); check = false)
+        _is_spd(FG, G_blend) || throw(ArgumentError(
+            "G" * (delta > 0 ? "* (after blending with delta = $delta)" : "") *
+            " is not positive definite. Blend with A22 (delta > 0, typically 0.05), " *
+            "remove duplicated genotypes, or use `core` (APY)."))
+        T(tau) .* Matrix{T}(inv(FG))
+    else
+        T(tau) .* Matrix{T}(apy_ginv(G_blend, core))
     end
+    Delta_G .-= T(omega) .* Matrix{T}(inv(FA))
 
+    # A⁻¹ plus the dense block on the genotyped rows and columns
+    I_a, J_a, V_a = findnz(A_inv)
+    na = length(I_a)
+    I_all = Vector{Int32}(undef, na + n2 * n2)
+    J_all = Vector{Int32}(undef, na + n2 * n2)
+    V_all = Vector{T}(undef, na + n2 * n2)
+    copyto!(I_all, I_a)
+    copyto!(J_all, J_a)
+    copyto!(V_all, V_a)
+    t = na
+    @inbounds for c in 1:n2, r in 1:n2
+        t += 1
+        I_all[t] = genotyped_ids[r]
+        J_all[t] = genotyped_ids[c]
+        V_all[t] = (Delta_G[r, c] + Delta_G[c, r]) / 2
+    end
     return sparse(I_all, J_all, V_all, N, N)
 end
 
+# A Cholesky factorisation can run to completion on a matrix that is singular
+# up to rounding (a G centred on the sample frequencies, for one). The
+# smallest squared pivot relative to the largest diagonal exposes that.
+function _is_spd(F::Cholesky, M::AbstractMatrix{T}) where {T}
+    issuccess(F) || return false
+    n = size(M, 1)
+    return minimum(abs2, diag(F.U)) > 1000 * n * eps(T) * maximum(diag(M))
+end
+
 """
-    Hinv(ped::DataFrame, G::AbstractMatrix{<:Real}, genotyped_ids::AbstractVector{<:Integer}; delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64)
+    Hinv(ped, G, genotyped_ids; kwargs...)
 
 Standard uppercase alias for [`hinv`](@ref).
 """

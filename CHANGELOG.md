@@ -2,7 +2,33 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
-## [v0.6.2] - unreleased
+## [v0.7.0] - 2026-11-14
+
+### Changed
+- `hinv` inverts `G*` and `A₂₂` through their Cholesky factors and throws
+  an `ArgumentError` naming the matrix when one is not positive definite,
+  including a `G` that is singular only up to rounding (a VanRaden `G`
+  centred on the sample frequencies). It used to return the general
+  inverse of whatever it was given. The result is exactly symmetric.
+- `nrm_diag`, and with it `ainv` and `nrm(ped, ids)`, compute inbreeding
+  by the algorithm of Meuwissen and Luo (1992), with full sibs sharing one
+  computation. Values are identical to v0.6 on the test pedigrees. On a
+  simulated pedigree of 100 000 animals (10 generations) `ainv` went from
+  5.4 s to 0.29 s; 1 000 000 animals take 3.3 s (Ryzen 9 3900X, one run).
+
+### Added
+- `hinv(...; tau, omega, tune, core)`: scaling of the genomic and pedigree
+  parts (Tsuruta et al., 2011), tuning of `G` to `A₂₂` in the same call,
+  and the APY inverse for a core subset.
+- `renumber(id, sire, dam)`: recode a pedigree with arbitrary labels to
+  `1:N` with parents first, adding parents without a record as founders;
+  duplicates and cycles are errors.
+- Methods on plain sire and dam vectors: `ainv(sire, dam)`, `nrm`,
+  `nrm_diag`, `hinv`, `kinship`, `validate_pedigree`.
+
+## [v0.6.2] - not registered
+
+Released as part of v0.7.0.
 
 ### Changed
 - `ainv`, `nrm(ped, ids)` and `hinv` validate the pedigree once per

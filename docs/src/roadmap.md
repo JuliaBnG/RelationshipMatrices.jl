@@ -25,14 +25,14 @@ $I_{\text{seg}}$ on identical individuals without format conversion.
 Mixed-model fitting is out of scope; the package supplies matrices and
 inverses to solvers such as JWAS.jl or BLUPF90.
 
-## Current state (v0.6.2)
+## Current state (v0.7.0)
 
 | Area | Implemented |
 |---|---|
 | Pedigree | dense $A$; Colleau (2002) $A_{22}$ without full $A$; sparse $A^{-1}$ (Henderson 1976); $1 + F_i$; pairwise kinship |
 | Groups | $A^{-1}$ with unknown-parent groups (`ainv_upg`, QP transformation); group contributions $Q$; sire–maternal-grandsire $A^{-1}$ (`ainv_smgs`) |
 | Non-additive and multibreed | pedigree dominance $D$ (`drm`); epistatic Hadamard products (`epistatic_grm`); partial relationship matrices, breed composition and segregation coefficients |
-| Single-step | $H^{-1}$ with $G^* = (1 - \delta) G + \delta A_{22}$; tuning of $G$ to $A_{22}$ (`tune_grm`); APY $G^{-1}$ (`apy_ginv`). `hinv` does not yet call the last two |
+| Single-step | $H^{-1}$ with $G^* = (1 - \delta) G + \delta A_{22}$; tuning of $G$ to $A_{22}$ (`tune_grm`); APY $G^{-1}$ (`apy_ginv`); $\tau$/$\omega$ scaling; all four through keywords of `hinv`, which inverts by Cholesky and refuses a matrix that is not positive definite |
 | Genomic | VanRaden 1 and 2, dominance (Vitezica et al. 2013); blocked BLAS `syrk` over loci; bit-packed popcount GRM for `BnGStructs` |
 | IBD | `irm` from unsigned founder labels; `grm` decoding bit 0 of the same labels |
 | Performance | cache-tiled, thread-balanced pairwise kernels; regression benchmarks in `bench/` |
@@ -61,11 +61,10 @@ the closest analogues, neither in Julia. Colleau $A_{22}$ and a one-call
 $H^{-1}$ in a small, MIT-licensed pure-Julia library with doctested
 documentation are also uncommon.
 
-**Gaps.** Production single-step evaluation still needs a `hinv` that
-inverts through Cholesky and fails on a matrix that is not positive
-definite, $\tau$/$\omega$ weights, tuning and APY inside the same call,
-metafounders, and missing-genotype handling. Pedigrees must already be
-numbered `1:N` with parents first; there is no renumbering helper.
+**Gaps.** Production single-step evaluation still needs metafounders
+and missing-genotype handling. `hinv` with APY still forms a dense
+$n_2 \times n_2$ block, so the number of genotyped animals is bounded by
+memory.
 Breadth of $G$ estimators, polyploidy and out-of-core data are behind
 AGHmatrix, PLINK2 and GCTA.
 
@@ -85,10 +84,13 @@ AGHmatrix, PLINK2 and GCTA.
 
 ## Track A: robustness and API
 
-Small changes that remove friction for existing users. Item 6 is done
-in part (v0.6.2): `ainv`, `nrm(ped, ids)` and `hinv` validate the
-pedigree once per call instead of once per internal step. The others
-are open.
+Small changes that remove friction for existing users. Done: item 1
+(v0.7.0), item 5 (`renumber`, v0.7.0), item 4 in part (sire and dam
+vector methods, v0.7.0; a Tables.jl source and moving DataFrames to an
+extension are open), item 6 in part (v0.6.2). Item 2 is dropped: the
+result is a dense $n_2 \times n_2$ matrix either way, and forming it from
+the blocks of $A^{-1}$ needs $(A^{11})^{-1}A^{12}$, which is larger than
+the Colleau $A_{22}$ it would replace. Items 3 and 7 are open.
 
 1. **`hinv` numerics**: invert $G^*$ and $A_{22}$ through Cholesky
    (LAPACK `potri`) and fail clearly when either is not positive
@@ -165,8 +167,8 @@ Design decisions to fix before implementation:
 
 Needed for production ssGBLUP; ordered by expected use. Items 1, 3 and 5
 shipped in v0.6.0 as `tune_grm`, `ainv_upg` (without fuzzy
-classification) and `apy_ginv`. What remains is to make `hinv` use
-them, and items 2 and 4.
+classification) and `apy_ginv`; item 2 and the `hinv` keywords for
+tuning and APY shipped in v0.7.0. Item 4 is open.
 
 1. **$G$ tuning to $A_{22}$**: match mean diagonal and off-diagonal
    (Vitezica et al. 2011; Christensen et al. 2012), giving
@@ -231,7 +233,8 @@ Validation is statistical, not only numerical.
 | Release | Contents |
 |---|---|
 | v0.6.2 | Housekeeping: pedigree validated once per call, progress through logging, Aqua, this page brought up to date |
-| v0.7 | Single-step that can be trusted: A1–A2 (`hinv` through Cholesky, sparse $A_{22}^{-1}$), C2 ($\tau$/$\omega$), `hinv` calling `tune_grm` and `apy_ginv`; A4–A5 (vector input, renumbering; DataFrames to an extension); A7 |
+| v0.7 | Single-step that can be trusted: `hinv` through Cholesky with an explicit failure, $\tau$/$\omega$, tuning and APY in the same call; `renumber` and sire/dam vector methods; inbreeding by Meuwissen and Luo (1992) |
+| v0.7.x | A7 dense `grm` filters; Tables.jl input and DataFrames to an extension; direct CSC assembly in `ainv`; an `hinv` for APY that keeps the genotyped block sparse |
 | v0.8 | B1–B2 segment-level IBD, with the input agreed with BnGsim: its gene drop already records, per gamete, the parent, the starting haplotype and the crossover positions, which with the pedigree determine founder segments. $E[I] = A$ and Hill–Weir variance validation; tutorial |
 | v0.9 | B3 ROH; D1 missing genotypes; C4 metafounders |
 | later | A3 Colleau batching; D2, D4; Track E inverse of $D$ and sex-linked $S$ |

@@ -3,6 +3,8 @@ using RelationshipMatrices
 using LinearAlgebra
 using Statistics
 using Test
+using Random
+using SparseArrays
 using Aqua
 
 @testset "RelationshipMatrices test suite" begin
@@ -223,6 +225,80 @@ using Aqua
         H_inv_blend_expected = copy(A_inv_dense)
         H_inv_blend_expected[sub_ids, sub_ids] .+= (inv(G22_blend) .- A22_inv)
         @test isapprox(Matrix(H_i_blend), H_inv_blend_expected; rtol=1e-10, atol=1e-10)
+    end
+
+    @testset "hinv: scaling, tuning, APY and failures" begin
+        ped = DataFrame(sire = [0, 0, 0, 1, 1, 3, 4, 4, 6, 6], dam = [0, 0, 0, 2, 2, 2, 5, 5, 7, 8])
+        ids = [4, 6, 7, 9, 10]
+        A = nrm(ped)
+        A22 = A[ids, ids]
+        G = A22 .* 0.9 .+ 0.15 .* Matrix(I, 5, 5) .+ 0.02
+        Ai = inv(A)
+        expected(Gs; τ = 1.0, ω = 1.0) = (H = copy(Ai); H[ids, ids] .+= τ .* inv(Gs) .- ω .* inv(A22); H)
+
+        # the defining property of H: its genotyped block is G
+        H = inv(Matrix(hinv(ped, G, ids)))
+        @test H[ids, ids] ≈ G
+        @test issymmetric(hinv(ped, G, ids))
+        # tau and omega
+        @test Matrix(hinv(ped, G, ids; tau = 1.5, omega = 0.7)) ≈ expected(G; τ = 1.5, ω = 0.7)
+        @test_throws ArgumentError hinv(ped, G, ids; tau = 0)
+        @test_throws ArgumentError hinv(ped, G, ids; omega = 1.2)
+        # tuning: the same as tuning by hand, and it matches the means of A22
+        Gt, _, _ = tune_grm(G, A22)
+        @test Matrix(hinv(ped, G, ids; tune = true, delta = 0.05)) ≈ expected(0.95 .* Gt .+ 0.05 .* A22)
+        # APY with every genotyped animal in the core is the exact inverse
+        @test Matrix(hinv(ped, G, ids; core = 1:5)) ≈ expected(G)
+        @test Matrix(hinv(ped, G, ids; core = [1, 2, 3])) ≈
+              (Hc = copy(Ai); Hc[ids, ids] .+= Matrix(apy_ginv(G, [1, 2, 3])) .- inv(A22); Hc)
+        # vector methods
+        @test hinv(ped.sire, ped.dam, G, ids) == hinv(ped, G, ids)
+        @test ainv(ped.sire, ped.dam) == ainv(ped)
+        @test nrm(ped.sire, ped.dam) == A && nrm(ped.sire, ped.dam, ids) == nrm(ped, ids)
+        @test nrm_diag(ped.sire, ped.dam) == nrm_diag(ped)
+        @test kinship(ped.sire, ped.dam, 9, 10) == kinship(ped, 9, 10)
+        @test validate_pedigree(ped.sire, ped.dam)
+        # a singular G (centred on the sample frequencies) is refused, and accepted once blended
+        Z = randn(MersenneTwister(1), 5, 40)
+        Z .-= sum(Z; dims = 1) ./ 5
+        Gs = Z * Z' ./ 40
+        @test_throws ArgumentError hinv(ped, Gs, ids)
+        @test hinv(ped, Gs, ids; delta = 0.05) isa SparseMatrixCSC
+        # an indefinite G is refused too
+        @test_throws ArgumentError hinv(ped, G .- 2.0 .* Matrix(I, 5, 5), ids)
+        @test_throws ArgumentError hinv(ped, G, [4, 6, 7, 9, 11])
+    end
+
+    @testset "renumber" begin
+        r = renumber(["calf", "cow", "bull"], ["bull", "", ""], ["cow", "", "granny"])
+        # granny is the dam of bull, so she comes first
+        @test r.id == ["granny", "bull", "cow", "calf"]
+        @test r.sire == [0, 0, 0, 2] && r.dam == [0, 1, 0, 3]
+        @test r.index["calf"] == 4
+        @test validate_pedigree(r.sire, r.dam)
+        # a shuffled pedigree gives the same relationships after renumbering
+        rng = MersenneTwister(5)
+        n = 60
+        s = zeros(Int, n); d = zeros(Int, n)
+        for i = 9:n
+            s[i] = rand(rng, 1:(i-1)); d[i] = rand(rng, 1:(i-1))
+        end
+        A = nrm(s, d)
+        perm = randperm(rng, n)
+        lab = 1000 .+ (1:n)                       # labels unrelated to the order
+        code(x) = x == 0 ? missing : lab[x]
+        rr = renumber(lab[perm], code.(s[perm]), code.(d[perm]))
+        @test validate_pedigree(rr.sire, rr.dam)
+        back = [rr.index[l] for l in lab]         # new number of each original animal
+        @test nrm(rr.sire, rr.dam)[back, back] ≈ A
+        @test Matrix(ainv(rr.sire, rr.dam))[back, back] ≈ Matrix(ainv(s, d))
+        # already ordered input is returned unchanged
+        r0 = renumber(1:n, s, d)
+        @test r0.sire == s && r0.dam == d && r0.id == 1:n
+        @test_throws ArgumentError renumber([1, 1], [0, 0], [0, 0])
+        @test_throws ArgumentError renumber([1, 2], [2, 1], [0, 0])
+        @test_throws ArgumentError renumber([1, 2], [1, 0], [0, 0])
+        @test_throws DimensionMismatch renumber([1, 2], [0], [0, 0])
     end
 
     @testset "GRM Model Variants (Method 2, Dominance, Blending)" begin
