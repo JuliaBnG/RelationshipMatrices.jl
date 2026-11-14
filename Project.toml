@@ -23,7 +23,7 @@ RelationshipMatricesBnGStructsExt = "BnGStructs"
 
 [compat]
 Aqua = "0.8"
-BnGStructs = "0.2"
+BnGStructs = "0.2, 0.3"
 DataFrames = "1"
 LinearAlgebra = "1"
 SparseArrays = "1"

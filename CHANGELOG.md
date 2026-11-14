@@ -10,6 +10,7 @@ All notable changes to `RelationshipMatrices.jl` will be documented in this file
 - `ainv(ped; verbose = true)` reports progress with `@info` instead of
   printing to `stdout`.
 - Compat entries for the standard libraries; the tests run Aqua.jl.
+- The BnGStructs extension works with BnGStructs 0.2 and 0.3.
 - The roadmap page describes the package as of this release.
 
 ## [v0.6.0] - 2026-10-08
