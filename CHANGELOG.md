@@ -2,7 +2,7 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
-## [v0.7.0] - unreleased
+## [v0.7.0] - 2026-11-14
 
 ### Changed
 - `hinv` inverts `G*` and `A₂₂` through their Cholesky factors and throws
@@ -26,7 +26,9 @@ All notable changes to `RelationshipMatrices.jl` will be documented in this file
 - Methods on plain sire and dam vectors: `ainv(sire, dam)`, `nrm`,
   `nrm_diag`, `hinv`, `kinship`, `validate_pedigree`.
 
-## [v0.6.2] - unreleased
+## [v0.6.2] - not registered
+
+Released as part of v0.7.0.
 
 ### Changed
 - `ainv`, `nrm(ped, ids)` and `hinv` validate the pedigree once per
