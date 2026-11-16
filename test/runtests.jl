@@ -560,4 +560,5 @@ using Aqua
         @test round.(partial_nrm(ped, h)[11, :], digits = 3) ≈
               [0, 0, 0, 0, 0, 0, 0, 0.25, 0, 0.125, 0.375]
     end
+    include("segments.jl")
 end

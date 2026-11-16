@@ -2,6 +2,34 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.7.1] - 2026-11-17
+
+### Added
+- Segment-level IBD (roadmap Track B1–B2):
+  - `Meioses`: the meioses that formed the non-founder haplotypes, per
+    gamete the parent, the haplotype it became, the starting phase per
+    chromosome and the crossover positions (a crossover at base `x` keeps
+    bases `≤ x` and switches from `x + 1`, the convention of BnGsim's
+    `make_progeny!`, whose `MeiosisRecord` holds these fields).
+  - `founder_segments(sire, dam, meioses, chromosomes)` → `HaplotypeSegments`:
+    the founder haplotype of every base of every haplotype, as maximal
+    runs (closed base intervals that never cross a chromosome end).
+  - `irm(segs::HaplotypeSegments; ids, min_len)`: the realized IBD
+    relationship matrix on the scale of `A`, exactly the locus-level `irm`
+    with a locus at every base; `min_len` counts only shared runs of at
+    least that many bases. `segment_inbreeding(segs)`.
+
+### Validation
+- Equal to the locus-level `irm` with a locus at every base (30
+  individuals, inbreeding, three chromosomes).
+- E[R] = A for full and half sibs, an inbred offspring and a cross
+  between lines, 2000 replicates of Haldane meioses: all 45 entries within
+  4.5 s.e.
+- The variance of realized half- and full-sib relationships against its
+  exact value under Haldane's map (the sharing of a parent's haplotypes by
+  two gametes is a two-state chain switching at rate 2 per Morgan):
+  within 4 s.e. of the sample variance.
+
 ## [v0.7.0] - 2026-11-14
 
 ### Changed
