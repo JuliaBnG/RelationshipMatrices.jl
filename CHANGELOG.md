@@ -2,7 +2,7 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
-## [v0.7.1] - 2026-11-17
+## [v0.7.1] - 2026-11-16
 
 ### Added
 - Segment-level IBD (roadmap Track B1–B2):
