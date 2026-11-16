@@ -15,6 +15,7 @@ include("grm.jl")
 include("grm-bits.jl")
 include("hinv.jl")
 include("irm.jl")
+include("segments.jl")
 include("groups.jl")
 include("apy.jl")
 include("drm.jl")
@@ -34,6 +35,7 @@ kinship(sire::_ParentVec, dam::_ParentVec, i::Integer, j::Integer) = kinship(_pe
 export nrm, nrm_diag, Ainv, ainv, grm, irm, irm_locus, kinship,
     validate_pedigree, hinv, Hinv, ainv_upg, group_contributions, ainv_smgs,
     tune_grm, apy_ginv, drm, epistatic_grm, partial_nrm, breed_composition,
-    segregation_coefficients, renumber
+    segregation_coefficients, renumber,
+    Meioses, HaplotypeSegments, founder_segments, segment_inbreeding
 
 end # module RelationshipMatrices
