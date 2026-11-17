@@ -186,23 +186,40 @@ function _splice!(ost, osp, olb, st, sp, lb, p, m::Meioses, g, chrs)
     k == length(xo) + 1 || throw(ArgumentError("crossovers of gamete $g lie outside the chromosomes or are out of order"))
 end
 
-# Bases shared IBD by haplotypes a and b: summed overlap of segments with
-# the same label, counting only shared runs of at least `min_len` bases.
-# Segments of each haplotype are in genome order and never cross a
-# chromosome end, so one two-pointer pass covers the genome.
+# Bases shared IBD by haplotypes a and b, counting only shared runs of
+# at least `min_len` bases. A shared run is a maximal stretch over which
+# the two haplotypes carry the same founder haplotype, merged across
+# founder labels: when both switch founder at the same base, they
+# inherited that junction from a common ancestor, so the stretch is one
+# segment identical by descent from that ancestor. Runs do not cross a
+# chromosome end. Segments of each haplotype are in genome order and
+# never cross a chromosome end, so one two-pointer pass covers the genome.
 function _shared(s::HaplotypeSegments, a::Integer, b::Integer, min_len::Integer)
     i, ie = s.ptr[a], s.ptr[a+1] - 1
     j, je = s.ptr[b], s.ptr[b+1] - 1
     tot = 0
+    run = 0                                       # length of the current shared run
+    last_y = UInt32(0)                            # its last base
+    c = 1                                         # chromosome of the current position
+    chrs = s.chromosomes
     @inbounds while i <= ie && j <= je
         x = max(s.start[i], s.start[j])
         y = min(s.stop[i], s.stop[j])
         if x <= y && s.label[i] == s.label[j]
-            len = Int(y - x) + 1
-            len >= min_len && (tot += len)
+            while x > last(chrs[c])
+                c += 1
+            end
+            if run > 0 && x == last_y + 1 && x != first(chrs[c])
+                run += Int(y - x) + 1             # contiguous: the same run
+            else
+                run >= min_len && (tot += run)
+                run = Int(y - x) + 1
+            end
+            last_y = y
         end
         s.stop[i] < s.stop[j] ? (i += 1) : s.stop[i] > s.stop[j] ? (j += 1) : (i += 1; j += 1)
     end
+    run >= min_len && (tot += run)
     return tot
 end
 
@@ -220,8 +237,10 @@ R_{ij} = \\frac{1}{2G}\\sum_{a \\in \\{i_1, i_2\\}}\\sum_{b \\in \\{j_1, j_2\\}}
 the same founder haplotype and ``G`` the genome length in bases. The
 diagonal is ``1 + F_i``. This is the locus-level [`irm`](@ref) with a
 locus at every base, without sampling loci. With `min_len`, only shared
-runs of at least `min_len` bases count (recent IBD); runs are maximal, so
-a crossover that does not change the founder origin does not split them.
+runs of at least `min_len` bases count (recent IBD). A shared run is a
+maximal stretch identical by descent, merged across founder labels (two
+haplotypes that switch founder at the same base inherited that junction
+from a common ancestor) and ending at chromosome ends.
 """
 function irm(segs::HaplotypeSegments; ids::AbstractVector{<:Integer} = 1:(nhaplotypes(segs)÷2),
     min_len::Integer = 0, T::Type{<:AbstractFloat} = Float64)
@@ -247,7 +266,8 @@ end
 
 Realized inbreeding coefficient of each individual: the proportion of the
 genome at which its two haplotypes carry the same founder haplotype
-(shared runs of at least `min_len` bases). Equals the diagonal of
+(shared runs of at least `min_len` bases, as in [`irm`](@ref) on
+segments: the autozygous segments that runs of homozygosity estimate). Equals the diagonal of
 [`irm`](@ref) on segments minus one.
 """
 function segment_inbreeding(segs::HaplotypeSegments; ids::AbstractVector{<:Integer} = 1:(nhaplotypes(segs)÷2),

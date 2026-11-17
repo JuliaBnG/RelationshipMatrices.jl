@@ -2,6 +2,32 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.7.2] - 2026-11-17
+
+### Fixed
+- `irm(segs; min_len)` and `segment_inbreeding(segs; min_len)` applied
+  `min_len` to runs of one founder label. Two haplotypes that switch
+  founder at the same base inherited that junction from a common
+  ancestor, so the stretch is one IBD segment; shared runs are now merged
+  across founder labels (never across a chromosome end), the autozygous
+  segments that runs of homozygosity estimate. Results without `min_len`
+  are unchanged. Found by comparing with `froh` in a pedigree with few
+  founders, where such junctions are common (correlation 0.85 before, >
+  0.99 after).
+
+### Added
+- Runs of homozygosity (roadmap Track B3): `roh(alleles, pos,
+  chromosomes; min_len, min_snps, max_het)` on phased alleles (e.g.
+  `Haplotype.gt`), runs measured as the span of their outer loci, never
+  crossing a chromosome end and never overlapping; `froh` the summed
+  run length over the genome length.
+
+### Validation
+- Hand-checked runs (thresholds, heterozygous loci absorbed, chromosome
+  ends). Against the autozygosity of founder segments (80 individuals, 8
+  founders, 2000-base marker spacing): within a few marker intervals per
+  run end, with a margin for segments near `min_len`; correlation > 0.99.
+
 ## [v0.7.1] - 2026-11-17
 
 ### Added
