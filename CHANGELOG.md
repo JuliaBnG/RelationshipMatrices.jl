@@ -28,7 +28,7 @@ All notable changes to `RelationshipMatrices.jl` will be documented in this file
   founders, 2000-base marker spacing): within a few marker intervals per
   run end, with a margin for segments near `min_len`; correlation > 0.99.
 
-## [v0.7.1] - 2026-11-17
+## [v0.7.1] - 2026-11-16
 
 ### Added
 - Segment-level IBD (roadmap Track B1–B2):
