@@ -156,6 +156,11 @@ Design decisions to fix before implementation:
 
 ### B3. Runs of homozygosity and genomic inbreeding (`src/roh.jl`)
 
+Done in v0.7.2 as `roh` and `froh` on phased alleles (runs as the span of
+their outer loci, up to `max_het` heterozygous loci), validated against
+the autozygosity of founder segments. Length classes are `froh` with
+several `min_len`; `inbreeding_diag` was not added (it is `diag(M) .- 1`).
+
 - `froh(haplotypes, chr_ends; min_len = 1e6, max_mismatch = 0)`:
   $F_{\text{ROH}} = \sum L_{\text{ROH}} / L_{\text{genome}}$, with
   length classes to separate recent from ancient inbreeding.
@@ -236,7 +241,7 @@ Validation is statistical, not only numerical.
 | v0.7 | Single-step that can be trusted: `hinv` through Cholesky with an explicit failure, $\tau$/$\omega$, tuning and APY in the same call; `renumber` and sire/dam vector methods; inbreeding by Meuwissen and Luo (1992) |
 | v0.7.x | A7 dense `grm` filters; Tables.jl input and DataFrames to an extension; direct CSC assembly in `ainv`; an `hinv` for APY that keeps the genotyped block sparse |
 | v0.8 (released as v0.7.1, additions only) | B1–B2 segment-level IBD, with the input agreed with BnGsim: its gene drop already records, per gamete, the parent, the starting haplotype and the crossover positions, which with the pedigree determine founder segments. $E[I] = A$ and Hill–Weir variance validation; tutorial |
-| v0.9 | B3 ROH; D1 missing genotypes; C4 metafounders |
+| v0.9 | D1 missing genotypes; C4 metafounders (B3 ROH shipped in v0.7.2) |
 | later | A3 Colleau batching; D2, D4; Track E inverse of $D$ and sex-linked $S$ |
 
 The order puts single-step robustness first, because BnGsim's breeding

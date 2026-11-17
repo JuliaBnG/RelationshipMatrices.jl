@@ -561,4 +561,5 @@ using Aqua
               [0, 0, 0, 0, 0, 0, 0, 0.25, 0, 0.125, 0.375]
     end
     include("segments.jl")
+    include("roh.jl")
 end

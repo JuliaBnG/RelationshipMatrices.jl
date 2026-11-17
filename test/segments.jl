@@ -53,6 +53,16 @@ end
     st, sp, lb = RelationshipMatrices.segments(founder_segments([0, 0, 1], [0, 0, 2], m2, chrs), 5)
     @test collect(zip(st, sp, lb)) == [(1, 100, 1), (101, 150, 1)]   # one segment per chromosome
 
+    # ---- min_len counts maximal IBD runs, merged across founder labels ----
+    # one individual whose two haplotypes both carry founder haplotype 1 on
+    # 1:40 and 2 on 41:100 (a junction inherited from a common ancestor),
+    # and 2 on chromosome 2 (101:150)
+    hs = RelationshipMatrices.HaplotypeSegments([0x00000001:0x00000064, 0x00000065:0x00000096], [1, 4, 7],
+        UInt32[1, 41, 101, 1, 41, 101], UInt32[40, 100, 150, 40, 100, 150], UInt32[1, 2, 2, 1, 2, 2])
+    @test segment_inbreeding(hs; min_len = 60) == [100 / 150]     # 1:100 is one run
+    @test segment_inbreeding(hs; min_len = 110) == [0.0]          # no run across the chromosome end
+    @test segment_inbreeding(hs) == [1.0]
+
     # ---- equal to locus-level IBD with a locus at every base ---------------
     rng = Xoshiro(2026)
     n = 30
