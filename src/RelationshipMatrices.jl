@@ -16,6 +16,7 @@ include("grm-bits.jl")
 include("hinv.jl")
 include("irm.jl")
 include("segments.jl")
+include("roh.jl")
 include("groups.jl")
 include("apy.jl")
 include("drm.jl")
@@ -36,6 +37,6 @@ export nrm, nrm_diag, Ainv, ainv, grm, irm, irm_locus, kinship,
     validate_pedigree, hinv, Hinv, ainv_upg, group_contributions, ainv_smgs,
     tune_grm, apy_ginv, drm, epistatic_grm, partial_nrm, breed_composition,
     segregation_coefficients, renumber,
-    Meioses, HaplotypeSegments, founder_segments, segment_inbreeding
+    Meioses, HaplotypeSegments, founder_segments, segment_inbreeding, roh, froh
 
 end # module RelationshipMatrices
