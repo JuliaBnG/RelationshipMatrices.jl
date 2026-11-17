@@ -2,7 +2,7 @@ name = "RelationshipMatrices"
 uuid = "d4d45922-7dca-4708-ac5a-a6dbb0551829"
 keywords = ["genomics", "relationship-matrix", "quantitative-genetics", "pedigree", "GRM"]
 license = "MIT"
-version = "0.7.2"
+version = "0.7.3"
 authors = ["Xijiang Yu <xijiang@users.noreply.github.com>"]
 description = "Efficient computation of relationship matrices for quantitative genetics in Julia."
 docs = "https://juliabng.github.io/RelationshipMatrices/"
@@ -23,7 +23,7 @@ RelationshipMatricesBnGStructsExt = "BnGStructs"
 
 [compat]
 Aqua = "0.8"
-BnGStructs = "0.2, 0.3"
+BnGStructs = "0.2, 0.3, 0.4"
 DataFrames = "1"
 LinearAlgebra = "1"
 Random = "1"

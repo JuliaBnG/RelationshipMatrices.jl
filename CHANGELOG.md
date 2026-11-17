@@ -2,6 +2,13 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.7.3] - 2026-11-17
+
+### Changed
+- Compat: BnGStructs 0.4 for the extension (no change in
+  RelationshipMatrices; BnGStructs 0.4 removed `Species.nid` and
+  `aTrait.QTL`, which it does not use).
+
 ## [v0.7.2] - 2026-11-17
 
 ### Fixed
