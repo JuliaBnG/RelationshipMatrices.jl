@@ -1,5 +1,5 @@
 """
-    nrm_diag(ped::DataFrame; m::Integer = -1) -> Vector{Float64}
+    nrm_diag(ped; m::Integer = -1) -> Vector{Float64}
 
 Calculate the diagonal elements of the numerator relationship matrix (\$A\$) by the algorithm of Meuwissen and Luo (1992).
 
@@ -12,13 +12,13 @@ F = nrm_diag(ped) .- 1.0
 ```
 
 # Pedigree Requirements
-- `ped::DataFrame` must have `:sire` and `:dam` columns.
+- `ped` must have `:sire` and `:dam` columns.
 - Row `i` corresponds to individual `i` (\$1 \\le i \\le N\$).
 - Unknown or missing parents must be coded as `0`.
 - Parents must precede their offspring (`sire < i` and `dam < i`).
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `ped`: Pedigree table meeting the requirements above.
 - `m::Integer`: Optional upper limit individual index. If specified and positive, computes diagonals only for individuals `1:m` (default: `-1`, computing for all individuals `1:N`).
 
 # Returns
@@ -46,15 +46,15 @@ diag_A = nrm_diag(ped)
  1.25
 ```
 """
-function nrm_diag(ped::DataFrame; m = -1)
+function nrm_diag(ped; m = -1)
     validate_pedigree(ped)
     return _nrm_diag(ped, m)
 end
 
 # `nrm_diag` on a pedigree the caller has already validated.
-function _nrm_diag(ped::DataFrame, m)
-    N = m == -1 ? size(ped, 1) : Int(m)
-    return _meuwissen_luo(ped[!, :sire], ped[!, :dam], N)
+function _nrm_diag(ped, m)
+    N = m == -1 ? _nrows(ped) : Int(m)
+    return _meuwissen_luo(_column(ped, :sire), _column(ped, :dam), N)
 end
 
 # Diagonal of A for animals 1:N by the algorithm of Meuwissen and Luo (1992):

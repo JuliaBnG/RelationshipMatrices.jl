@@ -23,7 +23,7 @@ pkg> add RelationshipMatrices
 
 ## Pedigree Data Conventions & Preparation
 
-Pedigree functions expect a `DataFrame` following these rules:
+Pedigree functions take any Tables.jl table (a `DataFrame`, a `NamedTuple` of vectors, a `CSV.File`, …) or `sire` and `dam` vectors, following these rules:
 - **Columns**: Must contain `:sire` and `:dam` columns.
 - **Row index is individual ID**: Row `i` represents individual `i` (from `1` to `N = nrow(ped)`). An explicit ID column is not required.
 - **`0` means unknown/missing parent**: Unknown parents **must be coded as integer `0`** (not `missing` or `nothing`).

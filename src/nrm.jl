@@ -1,5 +1,5 @@
 """
-    nrm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    nrm(ped; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
 Calculate the full numerator relationship matrix (\$A\$, also known as the additive relationship matrix) from pedigree data.
 
@@ -8,7 +8,7 @@ The elements of \$A\$ represent additive genetic relationships:
 - Off-diagonal elements: \$A_{ij} = A_{ji} = 0.5(A_{i, sire_j} + A_{i, dam_j})\$ (\$2 \\times\$ Malécot's kinship coefficient \$\\Phi_{ij}\$).
 
 # Pedigree Requirements
-- `ped::DataFrame` must have `:sire` and `:dam` columns.
+- `ped` must have `:sire` and `:dam` columns.
 - Row `i` corresponds to individual `i` (\$1 \\le i \\le N\$).
 - Unknown or missing parents must be coded as `0`.
 - Parents must precede their offspring (`sire < i` and `dam < i`). Use [`validate_pedigree`](@ref) to verify.
@@ -20,7 +20,7 @@ Allocates a dense \$N \\times N\$ matrix (e.g. 8 GB for \$N = 31{,}622\$ in `Flo
 - If only individual inbreeding coefficients are needed, use [`nrm_diag`](@ref).
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `ped`: Pedigree table meeting the requirements above.
 - `T::Type{<:AbstractFloat}`: Element type of the output matrix (default: `Float64`).
 
 # Returns
@@ -44,10 +44,10 @@ A = nrm(ped)
  0.75  0.25  0.75  1.25
 ```
 """
-function nrm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64)
+function nrm(ped; T::Type{<:AbstractFloat} = Float64)
     validate_pedigree(ped)
-    N = size(ped, 1)
-    ped_matrix = Matrix{Int32}(select(ped, [:sire, :dam]))
+    N = _nrows(ped)
+    ped_matrix = _parent_matrix(ped)
 
     available_mem = 0.8 * Sys.free_memory()
     req_mem = N * N * sizeof(T)
@@ -76,14 +76,14 @@ function nrm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64)
 end
 
 """
-    nrm(ped::DataFrame, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    nrm(ped, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
 Calculate the relationship submatrix \$A_{22}\$ for a subset of individuals `ids` using Colleau's (2002) indirect algorithm.
 
 Avoids materializing the full \$N \\times N\$ pedigree matrix by performing backward-forward passes across the pedigree, reducing memory consumption from \$O(N^2)\$ to \$O(N + n_2^2)\$ where \$n_2 = \\text{length}(ids)\$. This is especially useful for single-step GBLUP where only genotyped individuals need pedigree relationships.
 
 # Arguments
-- `ped::DataFrame`: Full pedigree table with `:sire` and `:dam` columns containing all individuals and their ancestors.
+- `ped`: Full pedigree table with `:sire` and `:dam` columns containing all individuals and their ancestors.
 - `ids::AbstractVector{<:Integer}`: Indices of target individuals (1-based row numbers in `ped`).
 - `T::Type{<:AbstractFloat}`: Floating point precision of the output matrix (default: `Float64`).
 
@@ -107,22 +107,22 @@ A22 = nrm(ped, [3, 4])
  0.75  1.25
 ```
 """
-function nrm(ped::DataFrame, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64)
+function nrm(ped, ids::AbstractVector{<:Integer}; T::Type{<:AbstractFloat} = Float64)
     validate_pedigree(ped)
     return _nrm_subset(ped, ids, T)
 end
 
 # Colleau `nrm(ped, ids)` on a pedigree the caller has already validated.
-function _nrm_subset(ped::DataFrame, ids::AbstractVector{<:Integer}, ::Type{T}) where {T<:AbstractFloat}
-    N = size(ped, 1)
+function _nrm_subset(ped, ids::AbstractVector{<:Integer}, ::Type{T}) where {T<:AbstractFloat}
+    N = _nrows(ped)
     n2 = length(ids)
 
     for id in ids
         (1 <= id <= N) || throw(BoundsError("ID $id out of bounds for pedigree with $N individuals"))
     end
 
-    sires = ped[!, :sire]
-    dams  = ped[!, :dam]
+    sires = _column(ped, :sire)
+    dams  = _column(ped, :dam)
 
     # Compute diagonal D values (D_ii = 1 - 0.25 Ks - 0.25 Kd)
     max_parent = 0

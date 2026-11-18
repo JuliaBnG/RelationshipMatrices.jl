@@ -1,12 +1,14 @@
 """
-    validate_pedigree(ped::DataFrame; strict::Bool = true) -> Bool
+    validate_pedigree(ped; strict::Bool = true) -> Bool
 
 Validate that `ped` satisfies all structural conventions expected by pedigree-based routines in `RelationshipMatrices`.
 
 # Pedigree Requirements & Preparation
 Pedigrees in `RelationshipMatrices` do not use an explicit ID column; the row index `i` (from `1` to `N = nrow(ped)`) serves as the unique ID for individual `i`.
 
-A valid pedigree `DataFrame` must satisfy:
+A pedigree is any [Tables.jl](https://github.com/JuliaData/Tables.jl)
+table: a `DataFrame`, a `NamedTuple` of vectors such as
+`(sire = s, dam = d)`, a `CSV.File`, …. A valid pedigree must satisfy:
 1. **Required Columns**: Must have `:sire` and `:dam` columns (either symbols or strings).
 2. **Implicit IDs**: Row `1` represents individual `1`, row `2` represents individual `2`, ..., row `N` represents individual `N`.
 3. **Parent Coding**:
@@ -14,11 +16,11 @@ A valid pedigree `DataFrame` must satisfy:
    - Unknown or missing parents **must be coded as `0`** (do not use `missing` or `nothing`).
 4. **No Self-Parenting**: An individual cannot be its own sire or dam (`sire != i` and `dam != i`).
 5. **Ordering / Chronology** (when `strict = true`):
-   - Parents must strictly precede their offspring in the DataFrame (`sire < i` and `dam < i`).
+   - Parents must strictly precede their offspring in the table (`sire < i` and `dam < i`).
    - If your raw dataset has arbitrary string IDs or unordered rows, [`renumber`](@ref) recodes it: `renumber(ped)` on a table with columns `id`, `sire` and `dam` returns it renumbered `1:N`, parents first, with its other columns carried along.
 
 # Arguments
-- `ped::DataFrame`: The pedigree table to validate.
+- `ped`: The pedigree table to validate.
 - `strict::Bool`: When `true` (default), enforces `sire < i` and `dam < i`. When `false`, permits parents appearing in later rows as long as they are valid individual IDs.
 
 # Returns
@@ -42,13 +44,13 @@ validate_pedigree(ped)
 true
 ```
 """
-function validate_pedigree(ped::DataFrame; strict::Bool = true)
-    "sire" in names(ped) || :sire in propertynames(ped) || error("Pedigree must contain :sire column")
-    "dam" in names(ped) || :dam in propertynames(ped) || error("Pedigree must contain :dam column")
+function validate_pedigree(ped; strict::Bool = true)
+    _hascolumn(ped, :sire) || error("Pedigree must contain :sire column")
+    _hascolumn(ped, :dam) || error("Pedigree must contain :dam column")
 
-    nid = size(ped, 1)
-    sires = ped[!, :sire]
-    dams = ped[!, :dam]
+    nid = _nrows(ped)
+    sires = _column(ped, :sire)
+    dams = _column(ped, :dam)
 
     for i in 1:nid
         s = sires[i]
@@ -197,8 +199,8 @@ function renumber(
 end
 
 """
-    renumber(ped::DataFrame; id = :id, sire = :sire, dam = :dam, label = :label,
-             unknown = <0, "", "0", missing or nothing>) -> DataFrame
+    renumber(ped; id = :id, sire = :sire, dam = :dam, label = :label,
+             unknown = <0, "", "0", missing or nothing>) -> table
 
 [`renumber`](@ref) on a table: the pedigree in the columns `id`, `sire` and
 `dam` (any labels), with every other column carried along. The result has
@@ -234,33 +236,52 @@ renumber(ped)
    4 │     4      2      3  calf    missing
 ```
 """
-function renumber(ped::DataFrame; id = :id, sire = :sire, dam = :dam, label = :label,
+function renumber(ped; id = :id, sire = :sire, dam = :dam, label = :label,
     unknown = _unknown_parent)
     id, sire, dam, label = Symbol(id), Symbol(sire), Symbol(dam), Symbol(label)
+    cols = _cols(ped)
+    names_ = collect(Symbol, Tables.columnnames(cols))
     for c in (id, sire, dam)
-        c in propertynames(ped) || throw(ArgumentError("the table has no column $c"))
+        c in names_ || throw(ArgumentError("the table has no column $c"))
     end
-    rest = [c for c in propertynames(ped) if !(c in (id, sire, dam))]
+    rest = [c for c in names_ if !(c in (id, sire, dam))]
     label in rest && throw(ArgumentError("label = :$label names a column of the table; choose another"))
     any(c -> c in (:id, :sire, :dam), rest) && throw(ArgumentError(
         "columns id, sire and dam of the result would clash with $(intersect(rest, [:id, :sire, :dam]))"))
-    r = renumber(ped[!, id], ped[!, sire], ped[!, dam]; unknown = unknown)
-    row = Dict(x => k for (k, x) in enumerate(ped[!, id]))
+    ids = Tables.getcolumn(cols, id)
+    r = renumber(ids, Tables.getcolumn(cols, sire), Tables.getcolumn(cols, dam); unknown = unknown)
+    row = Dict(x => k for (k, x) in enumerate(ids))
     src = [get(row, x, 0) for x in r.id]          # input row of each animal, 0 if added
-    out = DataFrame(id = Int32.(1:length(r.id)), sire = r.sire, dam = r.dam)
-    out[!, label] = r.id
     added = any(==(0), src)
+    names_out = Symbol[:id, :sire, :dam, label]
+    cols_out = Any[Int32.(1:length(r.id)), r.sire, r.dam, r.id]
     for c in rest
-        col = ped[!, c]
-        out[!, c] = added ? [k == 0 ? missing : col[k] for k in src] : col[src]
+        col = Tables.getcolumn(cols, c)
+        push!(names_out, c)
+        push!(cols_out, added ? [k == 0 ? missing : col[k] for k in src] : col[src])
     end
-    return out
+    return Tables.materializer(ped)(NamedTuple{Tuple(names_out)}(Tuple(cols_out)))
 end
 
 # Methods on plain parent vectors. They share the implementation of the
-# `DataFrame` methods; the table is a view of the vectors, not a copy.
-_ped(sire::AbstractVector{<:Integer}, dam::AbstractVector{<:Integer}) =
-    DataFrame(sire = sire, dam = dam; copycols = false)
+# table methods; the table is a NamedTuple of the vectors, not a copy.
+_ped(sire::AbstractVector{<:Integer}, dam::AbstractVector{<:Integer}) = (sire = sire, dam = dam)
+
+# Column access for any Tables.jl table.
+function _cols(ped)
+    Tables.istable(ped) || throw(ArgumentError(
+        "a pedigree must be a Tables.jl table (a DataFrame, a NamedTuple of vectors, …) " *
+        "with columns sire and dam; got $(typeof(ped))"))
+    return Tables.columns(ped)
+end
+_hascolumn(ped, c::Symbol) = c in Tables.columnnames(_cols(ped))
+function _column(ped, c::Symbol)
+    cols = _cols(ped)
+    c in Tables.columnnames(cols) || throw(ArgumentError("the pedigree has no column $c"))
+    return Tables.getcolumn(cols, c)
+end
+_nrows(ped) = length(_column(ped, :sire))
+_parent_matrix(ped) = hcat(Int32.(_column(ped, :sire)), Int32.(_column(ped, :dam)))
 
 """
     validate_pedigree(sire, dam; strict = true)
@@ -272,7 +293,7 @@ _ped(sire::AbstractVector{<:Integer}, dam::AbstractVector{<:Integer}) =
 
 The pedigree functions also accept the sire and dam columns as integer
 vectors (animals `1:N`, unknown parents `0`, parents before offspring), so
-a `DataFrame` is not needed. Use [`renumber`](@ref) to bring other
+a table is not needed. Use [`renumber`](@ref) to bring other
 pedigrees to that form.
 """
 validate_pedigree(sire::AbstractVector{<:Integer}, dam::AbstractVector{<:Integer}; kw...) =

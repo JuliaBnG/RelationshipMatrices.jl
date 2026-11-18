@@ -18,7 +18,7 @@ pkg> add RelationshipMatrices
 
 ## Pedigree Conventions & Data Preparation
 
-All pedigree-based functions (`nrm`, `ainv`, `nrm_diag`, `kinship`, `hinv`) expect a `DataFrame` following these conventions:
+All pedigree-based functions (`nrm`, `ainv`, `nrm_diag`, `kinship`, `hinv`, …) take a pedigree as any [Tables.jl](https://github.com/JuliaData/Tables.jl) table — a `DataFrame`, a `NamedTuple` of vectors such as `(sire = s, dam = d)`, a `CSV.File` — or as `sire` and `dam` vectors directly. DataFrames is not a dependency of the package. The pedigree follows these conventions:
 
 1. **Required Columns**: The table must contain `:sire` and `:dam` columns (symbols or strings).
 2. **Implicit 1-Based IDs**: Row index `i` (from `1` to `N = nrow(ped)`) represents individual `i`. An explicit animal ID column is not required.
@@ -135,7 +135,7 @@ G = grm(haplotype, locus_set; p = allele_frequencies)
 
 | Function | Description |
 |:---------|:------------|
-| [`validate_pedigree`](@ref) | Validates pedigree DataFrame structure, parent coding, and ordering |
+| [`validate_pedigree`](@ref) | Validates pedigree table structure, parent coding, and ordering |
 | [`nrm`](@ref) | Computes full dense numerator relationship matrix $A$, or submatrix $A_{22}$ via Colleau's method |
 | [`ainv`](@ref) / [`Ainv`](@ref) | Computes sparse inverse numerator relationship matrix $A^{-1}$ via Henderson's direct method |
 | [`nrm_diag`](@ref) | Calculates diagonal elements ($1 + F_i$) of $A$ in parallel |

@@ -145,7 +145,7 @@ function founder_segments(sire::AbstractVector{<:Integer}, dam::AbstractVector{<
     HaplotypeSegments(chrs, ptr, reduce(vcat, st), reduce(vcat, sp), reduce(vcat, lb))
 end
 
-founder_segments(ped::DataFrame, m::Meioses, chromosomes) = founder_segments(ped.sire, ped.dam, m, chromosomes)
+founder_segments(ped, m::Meioses, chromosomes) = founder_segments(_column(ped, :sire), _column(ped, :dam), m, chromosomes)
 
 # Append to (ost, osp, olb) the segments of a parental haplotype
 # restricted to bases a:b, merging with the last segment when contiguous,

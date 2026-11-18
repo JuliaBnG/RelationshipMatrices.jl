@@ -1,5 +1,5 @@
 """
-    hinv_apy(ped::DataFrame, gt::AbstractMatrix{Int8}, p, genotyped_ids, core;
+    hinv_apy(ped, gt::AbstractMatrix{Int8}, p, genotyped_ids, core;
              method = :vanraden1, delta = 0.0, tau = 1.0, omega = 1.0, tune = false)
         -> SparseMatrixCSC{Float64, Int32}
 
@@ -69,7 +69,7 @@ APY conditional variances are not positive (core too small or ``G^*``
 singular), or if ``A^{11}`` is not positive definite.
 """
 function hinv_apy(
-    ped::DataFrame,
+    ped,
     gt::AbstractMatrix{Int8},
     p::AbstractVector{<:Real},
     genotyped_ids::AbstractVector{<:Integer},
@@ -81,7 +81,7 @@ function hinv_apy(
     tune::Bool = false,
 )
     validate_pedigree(ped)
-    N = size(ped, 1)
+    N = _nrows(ped)
     nlc, n2 = size(gt)
     length(p) == nlc || throw(DimensionMismatch("length(p) = $(length(p)) differs from the $nlc loci of gt"))
     length(genotyped_ids) == n2 ||
@@ -181,9 +181,9 @@ end
 
 # Mendelian sampling variances D of the pedigree (A = T D T') and the
 # diagonal of A, K = 1 + F.
-function _colleau_d(ped::DataFrame)
-    N = size(ped, 1)
-    sires, dams = ped[!, :sire], ped[!, :dam]
+function _colleau_d(ped)
+    N = _nrows(ped)
+    sires, dams = _column(ped, :sire), _column(ped, :dam)
     K = _nrm_diag(ped, N)
     D = ones(N)
     for i = 1:N
@@ -197,10 +197,10 @@ end
 # A[rows, cols]' as an n_c × n₂ matrix (A is symmetric: entry (k, l) is
 # A[cols[k], rows[l]]), by Colleau's backward-forward passes, one per
 # column, and v'Av for v the indicator of `rows`.
-function _colleau_rows(ped::DataFrame, D::Vector{Float64}, cols::AbstractVector{<:Integer},
+function _colleau_rows(ped, D::Vector{Float64}, cols::AbstractVector{<:Integer},
     rows::AbstractVector{<:Integer})
-    N = size(ped, 1)
-    sires, dams = ped[!, :sire], ped[!, :dam]
+    N = _nrows(ped)
+    sires, dams = _column(ped, :sire), _column(ped, :dam)
     function amul(x)
         w = copy(x)
         for i = N:-1:1

@@ -1,6 +1,6 @@
 """
-    hinv(ped::DataFrame, G, genotyped_ids; delta = 0.0, tau = 1.0, omega = 1.0, tune = false, core = nothing, T = Float64) -> SparseMatrixCSC{T, Int32}
-    Hinv(ped::DataFrame, G, genotyped_ids; kwargs...) -> SparseMatrixCSC{T, Int32}
+    hinv(ped, G, genotyped_ids; delta = 0.0, tau = 1.0, omega = 1.0, tune = false, core = nothing, T = Float64) -> SparseMatrixCSC{T, Int32}
+    Hinv(ped, G, genotyped_ids; kwargs...) -> SparseMatrixCSC{T, Int32}
 
 Compute the sparse inverse of the combined pedigree-genomic relationship matrix (\$H^{-1}\$) for Single-Step Genomic BLUP (ssGBLUP; Legarra et al., 2009; Aguilar et al., 2010; Christensen and Lund, 2010).
 
@@ -17,7 +17,7 @@ where:
 - \$\\delta\$ (`delta`) is a blending parameter to guarantee positive definiteness and reconcile genetic bases (typically 0.05–0.10).
 
 # Pedigree & Genotype Preparation
-1. **Full Pedigree**: `ped::DataFrame` must contain **all** individuals (both ungenotyped ancestors/relatives and genotyped animals).
+1. **Full Pedigree**: `ped` must contain **all** individuals (both ungenotyped ancestors/relatives and genotyped animals).
    - Columns `:sire` and `:dam` required.
    - Row index corresponds to individual ID (`1:N`).
    - Unknown parents coded as `0`.
@@ -26,7 +26,7 @@ where:
 3. **Genomic Matrix**: `G` is a dense \$n_2 \\times n_2\$ matrix (where \$n_2 = \\text{length}(genotyped\\_ids)\$), computed e.g. using [`grm`](@ref).
 
 # Arguments
-- `ped::DataFrame`: Full pedigree table.
+- `ped`: Full pedigree table.
 - `G::AbstractMatrix{<:Real}`: Genomic relationship matrix for genotyped individuals (\$n_2 \\times n_2\$).
 - `genotyped_ids::AbstractVector{<:Integer}`: Vector of length \$n_2\$ listing row indices in `ped` for each entry in `G`.
 - `delta::Real`: Blending weight \$\\delta \\in [0, 1)\$ with \$A_{22}\$ (default: `0.0`).
@@ -73,7 +73,7 @@ true
 ```
 """
 function hinv(
-    ped::DataFrame,
+    ped,
     G::AbstractMatrix{<:Real},
     genotyped_ids::AbstractVector{<:Integer};
     delta::Real = 0.0,
@@ -84,7 +84,7 @@ function hinv(
     T::Type{<:AbstractFloat} = Float64,
 )
     validate_pedigree(ped)
-    N = size(ped, 1)
+    N = _nrows(ped)
     n2 = length(genotyped_ids)
     size(G, 1) == n2 && size(G, 2) == n2 ||
         throw(DimensionMismatch("Size of G ($(size(G))) must match length of genotyped_ids ($n2)"))

@@ -1,5 +1,5 @@
 """
-    drm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    drm(ped; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
 Calculate the dense pedigree dominance relationship matrix (\$D\$) using Cockerham's (1954)
 formula (see also Mrode and Pocrnic, 2023, Eqn 13.1).
@@ -29,13 +29,13 @@ Theoretical expectations under random mating:
     four-gene identity coefficients (Gillois, 1964; Harris, 1964; De Boer and Hoeschele, 1993).
 
 # Pedigree Requirements
-- `ped::DataFrame` must contain `:sire` and `:dam` columns.
+- `ped` must contain `:sire` and `:dam` columns.
 - Row `i` corresponds to individual `i` (\$1 \\le i \\le N\$).
 - Unknown or missing parents must be coded as `0`.
 - Parents must precede offspring (`sire < i` and `dam < i`).
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `ped`: Pedigree table meeting the requirements above.
 - `T::Type{<:AbstractFloat}`: Floating point precision of the output matrix (default: `Float64`).
 
 # Returns
@@ -64,10 +64,10 @@ D[3:5, 3:5]
  0.0   0.0   1.0
 ```
 """
-function drm(ped::DataFrame; T::Type{<:AbstractFloat} = Float64)
+function drm(ped; T::Type{<:AbstractFloat} = Float64)
     A = nrm(ped; T = T)
-    s = ped[!, :sire]
-    d = ped[!, :dam]
+    s = _column(ped, :sire)
+    d = _column(ped, :dam)
     N = length(s)
     a(i, j) = (i == 0 || j == 0) ? zero(T) : A[i, j]
     D = Matrix{T}(I, N, N)
