@@ -6,6 +6,7 @@ using Test
 using Random
 using SparseArrays
 using Aqua
+using BnGStructs
 
 @testset "RelationshipMatrices test suite" begin
 
@@ -51,6 +52,45 @@ using Aqua
         G_f16 = grm(gt; T = Float16)
         @test eltype(G_f16) == Float16
         @test isapprox(Float64.(G_f16), G2; rtol = 1e-2, atol = 1e-2)
+    end
+
+    @testset "GRM locus filters (maf, loci)" begin
+        rng = MersenneTwister(31)
+        nlc, nid = 300, 25
+        gt = Int8.(rand(rng, 0:2, nlc, nid))
+        p = rand(rng, nlc) .* 0.9 .+ 0.05
+        p[1:3] .= [0.0, 1.0, 0.5]                          # two monomorphic in the base
+        panel = sort(randperm(rng, nlc)[1:120])
+        for method in (:vanraden1, :vanraden2, :dominance)
+            # a panel is the same as subsetting the rows
+            @test grm(gt, p; method, loci = panel) ≈ grm(gt[panel, :], p[panel]; method)
+            # maf drops the loci with min(p, 1 - p) below the threshold
+            keep = findall(x -> 0 < x < 1 && min(x, 1 - x) >= 0.2, p)
+            @test grm(gt, p; method, maf = 0.2) ≈ grm(gt[keep, :], p[keep]; method)
+            both = intersect(panel, keep)
+            @test grm(gt, p; method, maf = 0.2, loci = panel) ≈ grm(gt[both, :], p[both]; method)
+        end
+        # frequencies estimated from the sample: filters on those
+        ps = vec(mean(gt; dims = 2)) ./ 2
+        ks = findall(x -> min(x, 1 - x) >= 0.3, ps)
+        @test grm(gt; maf = 0.3) ≈ grm(gt[ks, :], ps[ks])
+        @test grm(gt; loci = panel) ≈ grm(gt[panel, :], ps[panel])
+        # repeated panel indices count once
+        @test grm(gt, p; loci = [panel; panel[1:5]]) ≈ grm(gt, p; loci = panel)
+        # encoded alleles pass the filters on
+        enc = UInt32.(rand(rng, 0:1, nlc, 2nid))
+        dos = Int8.(enc[:, 1:2:end] .+ enc[:, 2:2:end])
+        @test grm(enc; p, maf = 0.1, loci = panel) ≈ grm(dos, p; maf = 0.1, loci = panel)
+        # and agree with the Haplotype method of the BnGStructs extension
+        h = BnGStructs.Haplotype(BitMatrix(enc .== 1))
+        @test grm(h, p; maf = 0.1, loci = panel) ≈ grm(dos, p; maf = 0.1, loci = panel)
+        # errors
+        @test_throws ArgumentError grm(gt, p; maf = 0.5)
+        @test_throws ArgumentError grm(gt, p; maf = -0.1)
+        @test_throws ArgumentError grm(gt, p; loci = [0, 5])
+        @test_throws ArgumentError grm(gt, p; loci = [nlc + 1])
+        @test_throws ArgumentError grm(h, p; loci = [nlc + 1])
+        @test_throws ErrorException grm(gt, p; maf = 0.49, loci = [1, 2])   # nothing left
     end
 
     @testset "NRM and Ainv tests" begin
@@ -299,6 +339,10 @@ using Aqua
             @test Matrix(Ha) ≈ Matrix(Hd) atol = 1e-10
             @test Ha == Ha'
         end
+        # the locus filters pass to G
+        panel = sort(randperm(rng, nlc)[1:300])
+        @test Matrix(hinv_apy(ped, gt, p, gen, core; maf = 0.15, loci = panel, delta = 0.05)) ≈
+              Matrix(hinv(ped, grm(gt, p; maf = 0.15, loci = panel), gen; core, delta = 0.05)) atol = 1e-10
         # the Schur complement of A⁻¹ is A₂₂⁻¹; with every animal genotyped it is A⁻¹
         Ai = SparseMatrixCSC{Float64,Int}(ainv(ped))
         @test Matrix(RelationshipMatrices._a22inv_schur(Ai, gen)) ≈ inv(nrm(ped, gen))

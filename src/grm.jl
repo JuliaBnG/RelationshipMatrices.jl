@@ -1,3 +1,20 @@
+# The loci that enter a GRM: polymorphic in `p`, minor allele frequency at
+# least `maf`, and in `loci` when given (indices into 1:nlc).
+function _grm_loci(p::AbstractVector{<:Real}, maf::Real, loci)
+    0 <= maf < 0.5 || throw(ArgumentError("maf must lie in [0, 0.5)"))
+    nlc = length(p)
+    keep = [0 < x < 1 && min(x, 1 - x) >= maf for x in p]
+    if loci !== nothing
+        sel = falses(nlc)
+        for l in loci
+            1 <= l <= nlc || throw(ArgumentError("locus $l is not in 1:$nlc"))
+            sel[l] = true
+        end
+        keep .&= sel
+    end
+    return findall(keep)
+end
+
 function inner_product(a::AbstractVector{Int8}, b::AbstractVector{Int8})
     acc = Int32(0)
     @inbounds @simd for k in 1:length(a)
@@ -57,8 +74,8 @@ function _grm_blocked!(
 end
 
 """
-    grm(gt::AbstractMatrix{Int8}, p::AbstractVector{Float64}; method::Symbol = :vanraden1, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
-    grm(gt::AbstractMatrix{Int8}; method::Symbol = :vanraden1, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    grm(gt::AbstractMatrix{Int8}, p::AbstractVector{Float64}; method::Symbol = :vanraden1, maf = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    grm(gt::AbstractMatrix{Int8}; method::Symbol = :vanraden1, maf = 0.0, loci = nothing, delta::Real = 0.0, T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
 Calculate the Genomic Relationship Matrix (\$G\$) from a genotype dosage matrix `gt` and allele frequencies `p`.
 
@@ -92,6 +109,8 @@ Blending ensures that \$G\$ is strictly positive definite and invertible, which 
 - `gt::AbstractMatrix{Int8}`: `nlc × nid` matrix of 0/1/2 genotype dosages.
 - `p::AbstractVector{Float64}`: Vector of allele frequencies of length `nlc` (\$0 < p_k < 1\$).
 - `method::Symbol`: Choice of relationship model (`:vanraden1`, `:vanraden2`, or `:dominance`; default: `:vanraden1`).
+- `maf::Real`: Minor allele frequency threshold in `[0, 0.5)`: loci with `min(p, 1 - p) < maf` are left out, `p` the given or estimated frequencies (default: `0.0`, every polymorphic locus).
+- `loci`: Optional collection of locus indices (rows of `gt`) to use, e.g. a chip panel; combined with `maf`. An index outside `1:nlc` is an `ArgumentError` (default: `nothing`, all loci).
 - `delta::Real`: Blending parameter \$\\delta \\in [0, 1)\$ with identity matrix \$I\$ (default: `0.0`).
 - `T::Type{<:AbstractFloat}`: Element type of the returned matrix (default: `Float64`).
 
@@ -129,14 +148,16 @@ function grm(
     gt::AbstractMatrix{Int8},
     p::AbstractVector{Float64};
     method::Symbol = :vanraden1,
+    maf::Real = 0.0,
+    loci = nothing,
     delta::Real = 0.0,
     T::Type{<:AbstractFloat} = Float64,
 )
     length(p) == size(gt, 1) || error("length(p) != number of loci (nlc)")
     0.0 <= delta < 1.0 || throw(ArgumentError("Blending parameter delta must be in [0, 1)"))
 
-    v = 0 .< p .< 1 # polymorphic loci
-    nlc = sum(v)
+    loci = _grm_loci(p, maf, loci) # polymorphic, above maf, in the panel
+    nlc = length(loci)
     nlc == 0 && error("No polymorphic loci found (0 < p < 1)")
     nid = size(gt, 2)
     if !isempty(gt)
@@ -154,7 +175,6 @@ function grm(
     G = zeros(T, nid, nid)
 
     # Per-locus codes for dosages 0, 1, 2 (rows of tab) and the scale factor
-    loci = findall(v)
     q = p[loci]
     tab = Matrix{Float64}(undef, 3, nlc)
     if method == :vanraden1
@@ -200,11 +220,13 @@ end
 function grm(
     gt::AbstractMatrix{Int8};
     method::Symbol = :vanraden1,
+    maf::Real = 0.0,
+    loci = nothing,
     delta::Real = 0.0,
     T::Type{<:AbstractFloat} = Float64,
 )
     p = vec(mean(gt, dims = 2) ./ 2)
-    return grm(gt, p; method = method, delta = delta, T = T)
+    return grm(gt, p; method = method, maf = maf, loci = loci, delta = delta, T = T)
 end
 
 """
@@ -212,6 +234,8 @@ end
         alleles::AbstractMatrix{<:Unsigned};
         p::Union{Nothing, AbstractVector{<:Real}} = nothing,
         method::Symbol = :vanraden1,
+        maf::Real = 0.0,
+        loci = nothing,
         delta::Real = 0.0,
         T::Type{<:AbstractFloat} = Float64,
     ) -> Matrix{T}
@@ -230,6 +254,7 @@ Calculate the genomic relationship matrix from bit-encoded founder alleles.
 - `alleles::AbstractMatrix{<:Unsigned}`: `nlc × (2 * nid)` matrix of unsigned integer labels (`UInt8`, `UInt16`, `UInt32`, `UInt64`).
 - `p::Union{Nothing, AbstractVector{<:Real}}`: Optional vector of reference allele frequencies. If `nothing` (default), frequencies are estimated from the decoded dosages.
 - `method::Symbol`: Model choice (`:vanraden1`, `:vanraden2`, or `:dominance`; default: `:vanraden1`).
+- `maf`, `loci`: Locus filters, as for the dosage method.
 - `delta::Real`: Blending weight with identity matrix `I` in `[0, 1)` (default: `0.0`).
 - `T::Type{<:AbstractFloat}`: Floating point precision (default: `Float64`).
 
@@ -259,6 +284,8 @@ function grm(
     alleles::AbstractMatrix{<:Unsigned};
     p::Union{Nothing,AbstractVector{<:Real}} = nothing,
     method::Symbol = :vanraden1,
+    maf::Real = 0.0,
+    loci = nothing,
     delta::Real = 0.0,
     T::Type{<:AbstractFloat} = Float64,
 )
@@ -277,7 +304,7 @@ function grm(
     end
 
     if isnothing(p)
-        return grm(gt; method = method, delta = delta, T = T)
+        return grm(gt; method = method, maf = maf, loci = loci, delta = delta, T = T)
     end
-    return grm(gt, Float64.(p); method = method, delta = delta, T = T)
+    return grm(gt, Float64.(p); method = method, maf = maf, loci = loci, delta = delta, T = T)
 end

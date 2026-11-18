@@ -1,6 +1,7 @@
 """
     hinv_apy(ped, gt::AbstractMatrix{Int8}, p, genotyped_ids, core;
-             method = :vanraden1, delta = 0.0, tau = 1.0, omega = 1.0, tune = false)
+             method = :vanraden1, maf = 0.0, loci = nothing, delta = 0.0, tau = 1.0,
+             omega = 1.0, tune = false)
         -> SparseMatrixCSC{Float64, Int32}
 
 ``H^{-1}`` for single-step GBLUP with the APY inverse of ``G`` (Misztal et al.
@@ -52,6 +53,8 @@ animal genotyped it is ``A^{-1}`` itself.
 - `core`: positions **within the genotyped set** (`1:n₂`) of the core
   animals.
 - `method`: `:vanraden1` (default) or `:vanraden2`, as in `grm`.
+- `maf`, `loci`: the loci of ``G``, as in [`grm`](@ref) (minor allele
+  frequency in `p` at least `maf`, and in the panel `loci` when given).
 - `delta`, `tau`, `omega`, `tune`: as in [`hinv`](@ref):
   ``G^* = (1 - \\delta) G_t + \\delta A_{22}``, with ``G_t`` tuned to
   ``A_{22}`` by [`tune_grm`](@ref) if `tune`.
@@ -75,6 +78,8 @@ function hinv_apy(
     genotyped_ids::AbstractVector{<:Integer},
     core::AbstractVector{<:Integer};
     method::Symbol = :vanraden1,
+    maf::Real = 0.0,
+    loci = nothing,
     delta::Real = 0.0,
     tau::Real = 1.0,
     omega::Real = 1.0,
@@ -101,7 +106,7 @@ function hinv_apy(
     end
 
     # G in the core rows, its diagonal, and 1'G1 for the mean of G
-    Gc, gd, s1 = _grm_core_rows(gt, Float64.(p), core, method)
+    Gc, gd, s1 = _grm_core_rows(gt, Float64.(p), core, method, _grm_loci(p, maf, loci))
     nc = setdiff(1:n2, core)
     gen = collect(Int, genotyped_ids)
 
@@ -142,9 +147,8 @@ end
 
 # G[core, :] (n_c × n₂), diag(G) and α‖W·1‖², in blocks of loci, with the
 # coding of `grm` (VanRaden 1 or 2).
-function _grm_core_rows(gt::AbstractMatrix{Int8}, p::Vector{Float64}, core, method::Symbol;
-    blk::Integer = 4096)
-    loci = findall(x -> 0 < x < 1, p)
+function _grm_core_rows(gt::AbstractMatrix{Int8}, p::Vector{Float64}, core, method::Symbol,
+    loci::Vector{Int} = _grm_loci(p, 0.0, nothing); blk::Integer = 4096)
     isempty(loci) && throw(ArgumentError("No polymorphic loci found (0 < p < 1)"))
     q = p[loci]
     nl, n2 = length(loci), size(gt, 2)
