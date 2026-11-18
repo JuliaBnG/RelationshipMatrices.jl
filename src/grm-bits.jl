@@ -48,11 +48,10 @@ function _build_keep_mask(nlc::Int, p::Vector{Float64}, maf::Float64, loci_subse
     if loci_subset !== nothing
         subset_mask = zeros(UInt64, w)
         for loc in loci_subset
-            if 1 <= loc <= nlc
-                k = (loc - 1) ÷ 64 + 1
-                b = (loc - 1) % 64
-                subset_mask[k] |= (UInt64(1) << b)
-            end
+            1 <= loc <= nlc || throw(ArgumentError("locus $loc is not in 1:$nlc"))
+            k = (loc - 1) ÷ 64 + 1
+            b = (loc - 1) % 64
+            subset_mask[k] |= (UInt64(1) << b)
         end
         for k in 1:w
             mask[k] &= subset_mask[k]

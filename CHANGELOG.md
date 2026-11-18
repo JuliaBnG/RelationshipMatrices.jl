@@ -2,6 +2,22 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.7.7] - 2026-11-18
+
+### Added
+- Dense `grm` locus filters (roadmap A7): `grm(gt, p)`, `grm(gt)` and
+  `grm(alleles::AbstractMatrix{<:Unsigned})` take `maf` (loci with
+  `min(p, 1 - p) < maf` are left out, `p` the given or estimated
+  frequencies) and `loci` (a panel of rows of `gt`), as the `Haplotype`
+  methods of the BnGStructs extension already did. The filters select
+  the loci the blocked kernel visits; no genotype copy is made. Every
+  method (`:vanraden1`, `:vanraden2`, `:dominance`).
+- `hinv_apy` takes the same `maf` and `loci`.
+
+### Changed
+- A `loci` index outside `1:nlc` is an `ArgumentError` in the
+  `Haplotype` methods too; it used to be ignored silently.
+
 ## [v0.7.6] - 2026-11-18
 
 ### Changed
