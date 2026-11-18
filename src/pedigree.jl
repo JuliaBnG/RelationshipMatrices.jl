@@ -15,7 +15,7 @@ A valid pedigree `DataFrame` must satisfy:
 4. **No Self-Parenting**: An individual cannot be its own sire or dam (`sire != i` and `dam != i`).
 5. **Ordering / Chronology** (when `strict = true`):
    - Parents must strictly precede their offspring in the DataFrame (`sire < i` and `dam < i`).
-   - If your raw dataset has arbitrary string IDs or unordered rows, sort parents before offspring and recode IDs to contiguous integers `1:N` before constructing the DataFrame.
+   - If your raw dataset has arbitrary string IDs or unordered rows, [`renumber`](@ref) recodes it: `renumber(ped)` on a table with columns `id`, `sire` and `dam` returns it renumbered `1:N`, parents first, with its other columns carried along.
 
 # Arguments
 - `ped::DataFrame`: The pedigree table to validate.
@@ -194,6 +194,67 @@ function renumber(
     end
     index = Dict{L,Int32}(out_id[k] => Int32(k) for k = 1:N)
     return (sire = out_s, dam = out_d, id = out_id, index = index)
+end
+
+"""
+    renumber(ped::DataFrame; id = :id, sire = :sire, dam = :dam, label = :label,
+             unknown = <0, "", "0", missing or nothing>) -> DataFrame
+
+[`renumber`](@ref) on a table: the pedigree in the columns `id`, `sire` and
+`dam` (any labels), with every other column carried along. The result has
+one row per animal in the new order, parents before offspring:
+
+- `id`: the new number, `1:N`, equal to the row (the form the rest of
+  the package requires);
+- `sire`, `dam`: the parents' new numbers, `0` when unknown;
+- `label`: the original label of the animal;
+- every other column of `ped`, its values moved with their animal.
+
+A parent with no row of its own in `ped` is added as a founder, with
+`missing` in the other columns. The records thus stay aligned with the
+animals however the input was ordered, and a matrix built from the result
+(`ainv(df.sire, df.dam)`, `nrm(df)`, …) is indexed by `df.id`; `df.label`
+maps it back. `label` must not name a column of `ped` other than `id`.
+
+# Examples
+```jldoctest
+using DataFrames, RelationshipMatrices
+
+ped = DataFrame(id = ["calf", "cow", "bull"], sire = ["bull", "", ""],
+                dam = ["cow", "", "granny"], milk = [missing, 31.0, missing])
+renumber(ped)
+# output
+4×5 DataFrame
+ Row │ id     sire   dam    label   milk
+     │ Int32  Int32  Int32  String  Float64?
+─────┼────────────────────────────────────────
+   1 │     1      0      0  granny  missing
+   2 │     2      0      1  bull    missing
+   3 │     3      0      0  cow          31.0
+   4 │     4      2      3  calf    missing
+```
+"""
+function renumber(ped::DataFrame; id = :id, sire = :sire, dam = :dam, label = :label,
+    unknown = _unknown_parent)
+    id, sire, dam, label = Symbol(id), Symbol(sire), Symbol(dam), Symbol(label)
+    for c in (id, sire, dam)
+        c in propertynames(ped) || throw(ArgumentError("the table has no column $c"))
+    end
+    rest = [c for c in propertynames(ped) if !(c in (id, sire, dam))]
+    label in rest && throw(ArgumentError("label = :$label names a column of the table; choose another"))
+    any(c -> c in (:id, :sire, :dam), rest) && throw(ArgumentError(
+        "columns id, sire and dam of the result would clash with $(intersect(rest, [:id, :sire, :dam]))"))
+    r = renumber(ped[!, id], ped[!, sire], ped[!, dam]; unknown = unknown)
+    row = Dict(x => k for (k, x) in enumerate(ped[!, id]))
+    src = [get(row, x, 0) for x in r.id]          # input row of each animal, 0 if added
+    out = DataFrame(id = Int32.(1:length(r.id)), sire = r.sire, dam = r.dam)
+    out[!, label] = r.id
+    added = any(==(0), src)
+    for c in rest
+        col = ped[!, c]
+        out[!, c] = added ? [k == 0 ? missing : col[k] for k in src] : col[src]
+    end
+    return out
 end
 
 # Methods on plain parent vectors. They share the implementation of the
