@@ -1,13 +1,13 @@
 """
-    ainv(ped::DataFrame; verbose::Bool = false) -> SparseMatrixCSC{Float64, Int32}
-    Ainv(ped::DataFrame; verbose::Bool = false) -> SparseMatrixCSC{Float64, Int32}
+    ainv(ped; verbose::Bool = false) -> SparseMatrixCSC{Float64, Int32}
+    Ainv(ped; verbose::Bool = false) -> SparseMatrixCSC{Float64, Int32}
 
 Compute the sparse inverse of the numerator relationship matrix (\$A^{-1}\$) directly from pedigree data using Henderson's (1976) rules.
 
 `Ainv` is provided as an alias for `ainv`.
 
 # Pedigree Preparation
-`RelationshipMatrices` requires a `DataFrame` following these conventions:
+`ped` is any Tables.jl table (a `DataFrame`, a `NamedTuple` of vectors, …) following these conventions:
 1. **Required columns**: Must contain `:sire` and `:dam` (symbols or strings).
 2. **Implicit individual IDs**: Row number `i` (`1 <= i <= nrow(ped)`) defines the ID of individual `i`. An explicit ID column is not required.
 3. **Missing/Unknown parents**: Unknown parents **must be coded as `0`** (do not use `missing` or `nothing`).
@@ -16,7 +16,7 @@ Compute the sparse inverse of the numerator relationship matrix (\$A^{-1}\$) dir
    - Run [`validate_pedigree`](@ref) to confirm that your pedigree conforms to these rules.
 
 # Arguments
-- `ped::DataFrame`: Pedigree table with `:sire` and `:dam` columns meeting the requirements above.
+- `ped`: Pedigree table with `:sire` and `:dam` columns meeting the requirements above.
 - `verbose::Bool`: If `true`, logs progress with `@info` at every 10% (default: `false`).
 
 # Returns
@@ -52,15 +52,15 @@ Matrix(A_inv)
  -1.0   0.0  -1.0   2.0
 ```
 """
-function ainv(ped::DataFrame; verbose::Bool = false)
+function ainv(ped; verbose::Bool = false)
     validate_pedigree(ped)
     return _ainv(ped, verbose)
 end
 
 # `ainv` on a pedigree the caller has already validated.
-function _ainv(ped::DataFrame, verbose::Bool)
-    nid = size(ped, 1)
-    ped_matrix = Matrix{Int32}(select(ped, [:sire, :dam]))
+function _ainv(ped, verbose::Bool)
+    nid = _nrows(ped)
+    ped_matrix = _parent_matrix(ped)
     j = maximum(ped_matrix) + 1 # typically K of the last generation are not needed
     if verbose
         @info "Calculating A inverse of $(nid) individuals"
@@ -122,7 +122,7 @@ function _ainv(ped::DataFrame, verbose::Bool)
 end
 
 """
-    Ainv(ped::DataFrame; verbose::Bool = false)
+    Ainv(ped; verbose::Bool = false)
 
 Standard uppercase alias for [`ainv`](@ref).
 """

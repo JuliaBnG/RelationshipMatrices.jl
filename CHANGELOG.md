@@ -2,6 +2,23 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.7.6] - 2026-11-18
+
+### Changed
+- Pedigrees are any Tables.jl table: a `DataFrame` as before, a
+  `NamedTuple` of vectors (`(sire = s, dam = d)`), a row table, a
+  `CSV.File`, …; columns are read through `Tables.columns`. DataFrames is
+  no longer a dependency (Tables.jl is), so it is not loaded with the
+  package: `using RelationshipMatrices` takes 0.23 s instead of 0.67 s.
+  Calls with a `DataFrame` are unchanged.
+- `renumber(table)` returns a table of the type it is given (a
+  `DataFrame` for a `DataFrame`, a `NamedTuple` for a `NamedTuple`), via
+  `Tables.materializer`.
+- The sire and dam vector methods wrap the vectors in a `NamedTuple`
+  instead of a `DataFrame` (no copy either way).
+- A pedigree argument that is not a table is an `ArgumentError` naming
+  the accepted forms.
+
 ## [v0.7.5] - 2026-11-18
 
 ### Added

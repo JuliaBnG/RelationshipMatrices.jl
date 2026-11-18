@@ -1,5 +1,5 @@
 """
-    breed_composition(ped::DataFrame, founder::AbstractMatrix) -> Matrix{Float64}
+    breed_composition(ped, founder::AbstractMatrix) -> Matrix{Float64}
 
 Calculate the expected breed composition matrix (\$N \\times n_b\$) across all pedigree individuals
 via recursive Mendelian transmission.
@@ -24,12 +24,12 @@ where \$\\mathbf{f}_i\$ is a row vector of length \$n_b\$ representing the breed
 - **Both parents known**: Composition is the unweighted average of the sire's and dam's breed compositions.
 
 # Pedigree Requirements
-- `ped::DataFrame` must contain `:sire` and `:dam` columns.
+- `ped` must contain `:sire` and `:dam` columns.
 - Parents must precede offspring (`sire < i` and `dam < i`).
 - Unknown parents must be coded as `0`.
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `ped`: Pedigree table meeting the requirements above.
 - `founder::AbstractMatrix`: Matrix of size \$N \\times n_b\$ where row `i` specifies the breed
   composition for founder animal `i` (rows for non-founders are ignored).
 
@@ -58,9 +58,9 @@ F[5:7, :]
  0.5  0.5
 ```
 """
-function breed_composition(ped::DataFrame, founder::AbstractMatrix)
+function breed_composition(ped, founder::AbstractMatrix)
     validate_pedigree(ped)
-    s, d = ped[!, :sire], ped[!, :dam]
+    s, d = _column(ped, :sire), _column(ped, :dam)
     N = length(s)
     size(founder, 1) == N || throw(DimensionMismatch("one row of `founder` per animal"))
     F = Matrix{Float64}(founder)
@@ -75,7 +75,7 @@ function breed_composition(ped::DataFrame, founder::AbstractMatrix)
 end
 
 """
-    segregation_coefficients(ped::DataFrame, F::AbstractMatrix, p::Integer, q::Integer) -> Vector{Float64}
+    segregation_coefficients(ped, F::AbstractMatrix, p::Integer, q::Integer) -> Vector{Float64}
 
 Calculate the vector of segregation variance coefficients (\$c_i\$) between breeds `p` and `q`
 for all animals in a pedigree (Lo et al., 1993; García-Cortés and Toro, 2006).
@@ -103,7 +103,7 @@ c_i = 2 (f_{pS} f_{qS} + f_{pD} f_{qD}).
 - **Missing parents**: Animals with unknown sire or dam receive \$c_i = 0.0\$.
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame with `:sire` and `:dam` columns.
+- `ped`: Pedigree table with `:sire` and `:dam` columns.
 - `F::AbstractMatrix`: Breed composition matrix (\$N \\times n_b\$), e.g. from [`breed_composition`](@ref).
 - `p::Integer`: Column index of the first breed in `F`.
 - `q::Integer`: Column index of the second breed in `F`.
@@ -134,14 +134,14 @@ h[5:7]
  1.0
 ```
 """
-function segregation_coefficients(ped::DataFrame, F::AbstractMatrix, p::Integer, q::Integer)
-    s, d = ped[!, :sire], ped[!, :dam]
+function segregation_coefficients(ped, F::AbstractMatrix, p::Integer, q::Integer)
+    s, d = _column(ped, :sire), _column(ped, :dam)
     [(s[i] > 0 && d[i] > 0) ?
      2 * (F[s[i], p] * F[s[i], q] + F[d[i], p] * F[d[i], q]) : 0.0 for i in eachindex(s)]
 end
 
 """
-    partial_nrm(ped::DataFrame, c::AbstractVector; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
+    partial_nrm(ped, c::AbstractVector; T::Type{<:AbstractFloat} = Float64) -> Matrix{T}
 
 Compute a partial numerator relationship matrix using the tabular method with animal-specific
 diagonal base coefficients (García-Cortés and Toro, 2006; Mrode and Pocrnic, 2023, Eqn 14.10).
@@ -175,12 +175,12 @@ where \$S_i\$ and \$D_i\$ are the parents of individual \$i\$ (with \$a_{j, 0} =
 Animals with no ancestral connection to the evaluated breed or segregation event have zero rows and columns.
 
 # Pedigree Requirements
-- `ped::DataFrame` must contain `:sire` and `:dam` columns.
+- `ped` must contain `:sire` and `:dam` columns.
 - Parents must precede offspring (`sire < i` and `dam < i`).
 - Unknown parents must be coded as `0`.
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `ped`: Pedigree table meeting the requirements above.
 - `c::AbstractVector`: Length-\$N\$ vector of animal-specific diagonal base coefficients.
 - `T::Type{<:AbstractFloat}`: Floating point precision of the output matrix (default: `Float64`).
 
@@ -211,9 +211,9 @@ round.(A1[5:7, 5:7], digits = 2)
  0.25  0.25  0.5
 ```
 """
-function partial_nrm(ped::DataFrame, c::AbstractVector; T::Type{<:AbstractFloat} = Float64)
+function partial_nrm(ped, c::AbstractVector; T::Type{<:AbstractFloat} = Float64)
     validate_pedigree(ped)
-    s, d = ped[!, :sire], ped[!, :dam]
+    s, d = _column(ped, :sire), _column(ped, :dam)
     N = length(s)
     length(c) == N || throw(DimensionMismatch("one coefficient per animal"))
     A = zeros(T, N, N)

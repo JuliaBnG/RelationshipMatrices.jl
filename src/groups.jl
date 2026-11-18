@@ -1,13 +1,13 @@
 """
-    _split_groups(ped::DataFrame) -> (sires, dams, ngroup)
+    _split_groups(ped) -> (sires, dams, ngroup)
 
 Read a pedigree whose unknown parents are coded `-g` for unknown parent
 group `g` (or `0` when ungrouped). Checks the coding and returns the
 parent vectors and the number of groups.
 """
-function _split_groups(ped::DataFrame)
-    s = Vector{Int}(ped[!, :sire])
-    d = Vector{Int}(ped[!, :dam])
+function _split_groups(ped)
+    s = Vector{Int}(_column(ped, :sire))
+    d = Vector{Int}(_column(ped, :dam))
     N = length(s)
     for i in 1:N, p in (s[i], d[i])
         p < i || throw(ArgumentError("row $i: parent $p must precede the offspring"))
@@ -17,7 +17,7 @@ function _split_groups(ped::DataFrame)
 end
 
 """
-    ainv_upg(ped::DataFrame; inbreeding::Bool = true) -> SparseMatrixCSC{Float64, Int32}
+    ainv_upg(ped; inbreeding::Bool = true) -> SparseMatrixCSC{Float64, Int32}
 
 Compute the sparse inverse numerator relationship matrix incorporating unknown parent groups
 (phantom-parent groups; Quaas, 1988; Westell et al., 1988) via the QP transformation for
@@ -54,7 +54,7 @@ This matrix can be constructed directly from the pedigree rules without forming 
 \$\\mathbf{A}\$ or \$\\mathbf{Q}\$ explicitly.
 
 # Pedigree Coding
-- `ped::DataFrame` must contain `:sire` and `:dam` columns.
+- `ped` must contain `:sire` and `:dam` columns.
 - Animals `1:N` correspond to rows `1:N` of `ped`.
 - **Known parents**: Coded as positive row indices `p > 0` and must precede offspring (`p < i`).
 - **Grouped unknown parents**: Coded as negative integers `-g`, where `g ∈ 1:n_g` denotes group `g`.
@@ -80,7 +80,7 @@ skipping any ungrouped unknown parents (`0`). When `inbreeding = false`, all \$F
 with both, one or no parents known.
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame following the UPG coding conventions.
+- `ped`: Pedigree table following the UPG coding conventions.
 - `inbreeding::Bool`: If `true` (default), accounts for inbreeding of known parents. If `false`, assumes \$F_p = 0\$.
 
 # Returns
@@ -102,11 +102,11 @@ size(A_upg)
 (10, 10)
 ```
 """
-function ainv_upg(ped::DataFrame; inbreeding::Bool = true)
+function ainv_upg(ped; inbreeding::Bool = true)
     s, d, ng = _split_groups(ped)
     N = length(s)
     F = if inbreeding
-        nrm_diag(DataFrame(sire = max.(s, 0), dam = max.(d, 0))) .- 1
+        nrm_diag((sire = max.(s, 0), dam = max.(d, 0))) .- 1
     else
         zeros(N)
     end
@@ -135,7 +135,7 @@ function ainv_upg(ped::DataFrame; inbreeding::Bool = true)
 end
 
 """
-    group_contributions(ped::DataFrame) -> Matrix{Float64}
+    group_contributions(ped) -> Matrix{Float64}
 
 Calculate the matrix \$\\mathbf{Q}\$ (\$N \\times n_g\$) of expected ancestral genetic contributions
 from each unknown parent group to every individual in the pedigree.
@@ -163,12 +163,12 @@ where:
   \$\\mathbf{A}^{-1}_{nn}\\mathbf{Q} + \\mathbf{A}^{-1}_{np} = \\mathbf{0}\$.
 
 # Pedigree Requirements & Coding
-- `ped::DataFrame` must contain `:sire` and `:dam` columns.
+- `ped` must contain `:sire` and `:dam` columns.
 - Animals `1:N` correspond to rows `1:N` (parents must precede offspring).
 - Known parents are positive integers; grouped unknown parents are `-g`; ungrouped are `0`.
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the UPG coding conventions.
+- `ped`: Pedigree table meeting the UPG coding conventions.
 
 # Returns
 - `Matrix{Float64}`: Dense \$N \\times n_g\$ matrix where entry \$(i, g)\$ represents the fraction
@@ -192,7 +192,7 @@ Q[[4, 7], :]
  0.375  0.625
 ```
 """
-function group_contributions(ped::DataFrame)
+function group_contributions(ped)
     s, d, ng = _split_groups(ped)
     N = length(s)
     Q = zeros(N, ng)
@@ -207,7 +207,7 @@ function group_contributions(ped::DataFrame)
 end
 
 """
-    ainv_smgs(ped::DataFrame) -> SparseMatrixCSC{Float64, Int32}
+    ainv_smgs(ped) -> SparseMatrixCSC{Float64, Int32}
 
 Compute the sparse inverse relationship matrix for a Sire – Maternal Grandsire (S-MGS)
 pedigree with unknown parent groups (Quaas et al., 1979; Mrode and Pocrnic, 2023, Sections 3.6
@@ -253,7 +253,7 @@ skipping any unknown, ungrouped ancestors (`0`).
 - Groups are ordered after the `N` bulls as rows/columns `N+1` to `N+n_g`.
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `ped`: Pedigree table meeting the requirements above.
 
 # Returns
 - `SparseMatrixCSC{Float64, Int32}`: Sparse augmented inverse relationship matrix of size \$(N + n_g) \\times (N + n_g)\$.
@@ -277,10 +277,10 @@ round.(Matrix(Ai), digits = 3)
  -0.364  -0.727   0.0     1.455
 ```
 """
-function ainv_smgs(ped::DataFrame)
-    s = Vector{Int}(ped[!, :sire])
-    g = Vector{Int}(ped[!, :mgs])
-    md = "mgd" in names(ped) ? Vector{Int}(ped[!, :mgd]) : zeros(Int, length(s))
+function ainv_smgs(ped)
+    s = Vector{Int}(_column(ped, :sire))
+    g = Vector{Int}(_column(ped, :mgs))
+    md = _hascolumn(ped, :mgd) ? Vector{Int}(_column(ped, :mgd)) : zeros(Int, length(s))
     N = length(s)
     for i in 1:N, p in (s[i], g[i])
         (p ≤ N && p != i) || throw(ArgumentError("row $i: invalid ancestor $p"))

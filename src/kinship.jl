@@ -66,7 +66,7 @@ function kinship_threaded_memo(
 end
 
 """
-    kinship(ped::DataFrame, i::Integer, j::Integer) -> Float64
+    kinship(ped, i::Integer, j::Integer) -> Float64
 
 Calculate the additive numerator relationship coefficient (\$A_{ij}\$) between individuals `i` and `j` from pedigree data.
 
@@ -75,13 +75,13 @@ The computed value corresponds directly to entry \$(i, j)\$ of the numerator rel
 - For distinct individuals (\$i \\ne j\$): returns Wright's relationship coefficient \$A_{ij} = 2 \\Phi_{ij}\$ (twice Malécot's kinship coefficient \$\\Phi_{ij}\$). For example, parent-offspring and full-sib pairs with unrelated, non-inbred parents have a relationship of 0.5.
 
 # Pedigree Requirements
-- `ped::DataFrame` must have `:sire` and `:dam` columns.
+- `ped` must have `:sire` and `:dam` columns.
 - Row indices correspond to individual IDs (`1:nrow(ped)`).
 - Unknown or missing parents must be coded as `0`.
 - Parents must precede offspring (`sire < i` and `dam < i`).
 
 # Arguments
-- `ped::DataFrame`: Pedigree DataFrame meeting the requirements above.
+- `ped`: Pedigree table meeting the requirements above.
 - `i::Integer`: 1-based index (row number) of the first individual.
 - `j::Integer`: 1-based index (row number) of the second individual.
 
@@ -109,25 +109,25 @@ kinship(ped, 4, 4)
 1.25
 ```
 """
-function kinship(ped::DataFrame, i::Integer, j::Integer)
+function kinship(ped, i::Integer, j::Integer)
     validate_pedigree(ped)
-    nid = size(ped, 1)
+    nid = _nrows(ped)
     (1 <= i <= nid && 1 <= j <= nid) || throw(BoundsError("Indices ($i, $j) out of bounds for pedigree with $nid individuals"))
-    ped_matrix = Matrix{Int32}(select(ped, [:sire, :dam]))
+    ped_matrix = _parent_matrix(ped)
     memo_dict = Dict{Int64,Float64}()
     dict_lock = ReentrantLock()
     return kinship_threaded_memo(ped_matrix, Int32(i), Int32(j), memo_dict, dict_lock)
 end
 
 """
-    kinship(ped::DataFrame, pairs::AbstractVector{<:Tuple{Integer, Integer}}) -> Vector{Float64}
+    kinship(ped, pairs::AbstractVector{<:Tuple{Integer, Integer}}) -> Vector{Float64}
 
 Calculate additive relationship coefficients (\$A_{ij}\$) for multiple pairs of individuals in parallel.
 
 Uses multi-threaded recursive evaluation with a thread-safe memoization cache, avoiding redundant calculations across related pairs.
 
 # Arguments
-- `ped::DataFrame`: Pedigree table with `:sire` and `:dam` columns.
+- `ped`: Pedigree table with `:sire` and `:dam` columns.
 - `pairs::AbstractVector{<:Tuple{Integer, Integer}}`: Vector of `(i, j)` tuples containing 1-based row indices in `ped`.
 
 # Returns
@@ -152,14 +152,14 @@ kinship(ped, pairs)
  0.75
 ```
 """
-function kinship(ped::DataFrame, pairs::AbstractVector{<:Tuple{Integer, Integer}})
+function kinship(ped, pairs::AbstractVector{<:Tuple{Integer, Integer}})
     validate_pedigree(ped)
-    nid = size(ped, 1)
+    nid = _nrows(ped)
     for (i, j) in pairs
         (1 <= i <= nid && 1 <= j <= nid) ||
             throw(BoundsError("Indices ($i, $j) out of bounds for pedigree with $nid individuals"))
     end
-    ped_matrix = Matrix{Int32}(select(ped, [:sire, :dam]))
+    ped_matrix = _parent_matrix(ped)
     memo_dict = Dict{Int64,Float64}()
     dict_lock = ReentrantLock()
     res = Vector{Float64}(undef, length(pairs))

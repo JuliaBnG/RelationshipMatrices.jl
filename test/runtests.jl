@@ -335,6 +335,37 @@ using Aqua
         @test_throws ArgumentError hinv_apy(ped, g2, fill(0.5, 20), gen, 1:30)
     end
 
+    @testset "Tables.jl input" begin
+        rng = MersenneTwister(4)
+        n = 50
+        s = [i <= 6 ? 0 : rand(rng, 1:i-1) for i = 1:n]
+        d = [i <= 6 ? 0 : rand(rng, 1:i-1) for i = 1:n]
+        df = DataFrame(sire = s, dam = d, y = randn(rng, n))
+        nt = (sire = s, dam = d)                            # a column table
+        rows = [(sire = s[i], dam = d[i]) for i = 1:n]      # a row table
+        for t in (nt, rows)
+            @test validate_pedigree(t)
+            @test ainv(t) == ainv(df)
+            @test nrm(t) == nrm(df) && nrm(t, [5, 9, 40]) == nrm(df, [5, 9, 40])
+            @test nrm_diag(t) == nrm_diag(df)
+            @test kinship(t, 9, 40) == kinship(df, 9, 40)
+            @test drm(t) == drm(df)
+        end
+        ids = [10, 20, 30, 40, 50]
+        G = Matrix(1.0I, 5, 5) .+ 0.1
+        @test hinv(nt, G, ids; delta = 0.05) == hinv(df, G, ids; delta = 0.05)
+        # renumber returns the table type it is given
+        t2 = (id = ["calf", "cow", "bull"], sire = ["bull", "", ""], dam = ["cow", "", "granny"], milk = [missing, 31.0, missing])
+        r_nt = renumber(t2)
+        @test r_nt isa NamedTuple
+        @test r_nt.label == ["granny", "bull", "cow", "calf"] && isequal(r_nt.milk, [missing, missing, 31.0, missing])
+        r_df = renumber(DataFrame(t2))
+        @test r_df isa DataFrame && isequal(DataFrame(r_nt), r_df)
+        # not a table, or no parent columns
+        @test_throws ArgumentError ainv([1 2; 3 4])
+        @test_throws ErrorException validate_pedigree((father = s, dam = d))
+    end
+
     @testset "renumber" begin
         r = renumber(["calf", "cow", "bull"], ["bull", "", ""], ["cow", "", "granny"])
         # granny is the dam of bull, so she comes first

@@ -1,6 +1,6 @@
 module RelationshipMatrices
 
-using DataFrames
+using Tables
 using LinearAlgebra
 using SparseArrays
 using Statistics

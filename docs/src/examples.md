@@ -8,7 +8,7 @@ This guide provides end-to-end examples showing how to prepare data and calculat
 
 ### Preparing a Pedigree from Scratch
 
-A pedigree in `RelationshipMatrices` is represented as a `DataFrame` with `:sire` and `:dam` columns.
+A pedigree in `RelationshipMatrices` is any Tables.jl table with `:sire` and `:dam` columns; the examples use a `DataFrame`, and a `NamedTuple` of vectors, `(sire = s, dam = d)`, works the same.
 - The row number `i` (`1 <= i <= N`) implicitly identifies individual `i`.
 - Unknown parents must be coded as `0`.
 - Parents must appear in rows prior to their offspring (`sire < i` and `dam < i`).
