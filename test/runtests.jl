@@ -299,6 +299,28 @@ using Aqua
         @test_throws ArgumentError renumber([1, 2], [2, 1], [0, 0])
         @test_throws ArgumentError renumber([1, 2], [1, 0], [0, 0])
         @test_throws DimensionMismatch renumber([1, 2], [0], [0, 0])
+
+        # on a table: records move with their animals
+        tab = DataFrame(animal = lab[perm], father = code.(s[perm]), mother = code.(d[perm]),
+            y = Float64.(lab[perm]) ./ 10, sex = isodd.(perm))
+        rt = renumber(tab; id = :animal, sire = :father, dam = :mother, label = :name)
+        @test names(rt) == ["id", "sire", "dam", "name", "y", "sex"]
+        @test rt.id == 1:n && rt.sire == rr.sire && rt.dam == rr.dam && rt.name == rr.id
+        @test rt.y == rt.name ./ 10                  # each record with its own animal
+        @test rt.sex == isodd.(rt.name .- 1000)
+        @test eltype(rt.y) == Float64                # no parent was added: no missing
+        @test nrm(rt.sire, rt.dam)[back, back] ≈ A
+        # parents without a row are added as founders with missing records
+        t2 = DataFrame(id = ["calf", "cow", "bull"], sire = ["bull", "", ""],
+            dam = ["cow", "", "granny"], milk = [missing, 31.0, missing], n = [1, 2, 3])
+        r2 = renumber(t2)
+        @test r2.label == ["granny", "bull", "cow", "calf"]
+        @test r2.sire == [0, 0, 0, 2] && r2.dam == [0, 1, 0, 3]
+        @test isequal(r2.milk, [missing, missing, 31.0, missing])
+        @test isequal(r2.n, [missing, 3, 2, 1])
+        @test_throws ArgumentError renumber(t2; id = :animal)
+        @test_throws ArgumentError renumber(t2; label = :milk)
+        @test_throws ArgumentError renumber(DataFrame(a = [1], sire = [0], dam = [0], id = [5]); id = :a)
     end
 
     @testset "GRM Model Variants (Method 2, Dominance, Blending)" begin

@@ -12,7 +12,7 @@ Compute the sparse inverse of the numerator relationship matrix (\$A^{-1}\$) dir
 2. **Implicit individual IDs**: Row number `i` (`1 <= i <= nrow(ped)`) defines the ID of individual `i`. An explicit ID column is not required.
 3. **Missing/Unknown parents**: Unknown parents **must be coded as `0`** (do not use `missing` or `nothing`).
 4. **Ordering**: Parents must precede offspring in the rows (`sire < i` and `dam < i`).
-   - If your raw dataset uses non-numeric or alphanumeric IDs, recode them to `1:N` such that every parent appears on an earlier row than any of its progeny.
+   - If your raw dataset uses non-numeric or alphanumeric IDs, or is not sorted, recode it with [`renumber`](@ref): `renumber(ped)` on a table with columns `id`, `sire` and `dam` numbers the animals `1:N`, parents first, and carries the other columns along.
    - Run [`validate_pedigree`](@ref) to confirm that your pedigree conforms to these rules.
 
 # Arguments

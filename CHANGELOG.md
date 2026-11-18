@@ -2,6 +2,22 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.7.4] - 2026-11-18
+
+### Added
+- `renumber(ped::DataFrame; id, sire, dam, label, unknown)`: the
+  `DataFrame` method of `renumber`. It returns the table renumbered
+  `1:N`, parents first (`id`, `sire`, `dam` as the new numbers, `label`
+  the original label), with every other column carried along with its
+  animal; parents without a row are added as founders with `missing`
+  records. Records stay aligned with their animals however the input
+  was ordered.
+
+### Changed
+- The docstrings of `ainv` and `validate_pedigree` point to `renumber`
+  for pedigrees with arbitrary labels or unsorted rows, instead of
+  leaving the recoding to the user.
+
 ## [v0.7.3] - 2026-11-17
 
 ### Changed
