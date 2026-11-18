@@ -83,23 +83,36 @@ function apy_ginv(G::AbstractMatrix, core::AbstractVector{<:Integer})
     n = size(G, 1)
     allunique(core) || throw(ArgumentError("core indices must be unique"))
     nc = setdiff(1:n, core)
-    Gcc = Symmetric(Matrix{Float64}(G[core, core]))
-    F = cholesky(Gcc)
-    P = F \ Matrix{Float64}(G[core, nc])          # G_cc⁻¹ G_cn
-    m = [G[j, j] - dot(view(G, core, j), view(P, :, k)) for (k, j) in enumerate(nc)]
+    Gcc = Matrix{Float64}(G[core, core])
+    Gcn = Matrix{Float64}(G[core, nc])
+    return _apy_from_blocks(Gcc, Gcn, Float64[G[j, j] for j in nc], core, nc, n)
+end
+
+# APY inverse from its blocks: G_cc (core × core), G_cn (core × non-core)
+# and the diagonal of G_nn, `core` and `nc` the positions of the core and
+# non-core animals among `1:n`. Nothing of size n × n is formed.
+function _apy_from_blocks(Gcc::Matrix{Float64}, Gcn::Matrix{Float64}, gnn::Vector{Float64},
+    core::AbstractVector{<:Integer}, nc::AbstractVector{<:Integer}, n::Integer)
+    F = cholesky(Symmetric(Gcc))
+    P = F \ Gcn                                    # G_cc⁻¹ G_cn
+    m = [gnn[k] - dot(view(Gcn, :, k), view(P, :, k)) for k in eachindex(nc)]
     any(≤(0), m) && throw(ArgumentError("non-positive Mₙₙ: core set too small or G singular"))
     w = 1 ./ m
     Cinv = inv(F) + P * Diagonal(w) * P'
-    I_, J_, V_ = Int[], Int[], Float64[]
+    ncore, nn = length(core), length(nc)
+    nz = ncore^2 + 2ncore * nn + nn
+    I_ = Vector{Int}(undef, nz); J_ = similar(I_); V_ = Vector{Float64}(undef, nz)
+    t = 0
     for (b, cb) in enumerate(core), (a, ca) in enumerate(core)
-        push!(I_, ca); push!(J_, cb); push!(V_, Cinv[a, b])
+        t += 1; I_[t] = ca; J_[t] = cb; V_[t] = Cinv[a, b]
     end
     for (k, j) in enumerate(nc)
         for (a, ca) in enumerate(core)
             v = -P[a, k] * w[k]
-            push!(I_, ca, j); push!(J_, j, ca); push!(V_, v, v)
+            t += 1; I_[t] = ca; J_[t] = j; V_[t] = v
+            t += 1; I_[t] = j; J_[t] = ca; V_[t] = v
         end
-        push!(I_, j); push!(J_, j); push!(V_, w[k])
+        t += 1; I_[t] = j; J_[t] = j; V_[t] = w[k]
     end
     sparse(I_, J_, V_, n, n)
 end

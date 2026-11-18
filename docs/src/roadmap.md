@@ -62,9 +62,10 @@ $H^{-1}$ in a small, MIT-licensed pure-Julia library with doctested
 documentation are also uncommon.
 
 **Gaps.** Production single-step evaluation still needs metafounders
-and missing-genotype handling. `hinv` with APY still forms a dense
-$n_2 \times n_2$ block, so the number of genotyped animals is bounded by
-memory.
+and missing-genotype handling. `hinv_apy` (v0.7.5) builds the APY
+$H^{-1}$ from genotypes without any dense $n_2 \times n_2$ block; the
+APY inverse itself has $n_c^2 + 2 n_c n_n$ nonzeros, and a direct solve
+of the mixed-model equations still needs iterative methods beyond that.
 Breadth of $G$ estimators, polyploidy and out-of-core data are behind
 AGHmatrix, PLINK2 and GCTA.
 
@@ -239,7 +240,7 @@ Validation is statistical, not only numerical.
 |---|---|
 | v0.6.2 | Housekeeping: pedigree validated once per call, progress through logging, Aqua, this page brought up to date |
 | v0.7 | Single-step that can be trusted: `hinv` through Cholesky with an explicit failure, $\tau$/$\omega$, tuning and APY in the same call; `renumber` and sire/dam vector methods; inbreeding by Meuwissen and Luo (1992) |
-| v0.7.x | A7 dense `grm` filters; Tables.jl input and DataFrames to an extension; direct CSC assembly in `ainv`; an `hinv` for APY that keeps the genotyped block sparse |
+| v0.7.x | A7 dense `grm` filters; Tables.jl input and DataFrames to an extension; direct CSC assembly in `ainv`; an `hinv` for APY that keeps the genotyped block sparse (`hinv_apy`, v0.7.5) |
 | v0.8 (released as v0.7.1, additions only) | B1–B2 segment-level IBD, with the input agreed with BnGsim: its gene drop already records, per gamete, the parent, the starting haplotype and the crossover positions, which with the pedigree determine founder segments. $E[I] = A$ and Hill–Weir variance validation; tutorial |
 | v0.9 | D1 missing genotypes; C4 metafounders (B3 ROH shipped in v0.7.2) |
 | later | A3 Colleau batching; D2, D4; Track E inverse of $D$ and sex-linked $S$ |

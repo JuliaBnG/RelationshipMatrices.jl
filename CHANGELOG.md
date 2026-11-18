@@ -2,6 +2,27 @@
 
 All notable changes to `RelationshipMatrices.jl` will be documented in this file.
 
+## [v0.7.5] - 2026-11-18
+
+### Added
+- `hinv_apy(ped, gt, p, genotyped_ids, core; method, delta, tau,
+  omega, tune)`: ``H^{-1}`` with the APY inverse of ``G`` computed from
+  the genotypes, without any ``n_2 \times n_2`` matrix. It forms ``G``
+  and ``A_{22}`` only in the core rows and on the diagonal (``A_{22}`` by
+  Colleau's algorithm), the means that `tune` needs from sums, the APY
+  inverse sparse, and ``A_{22}^{-1}`` exactly as the Schur complement of
+  the sparse ``A^{-1}`` over the animals without genotype (Strandén and
+  Mäntysaari 2014), through a sparse Cholesky factor. Equal to
+  `hinv(ped, grm(gt, p; method), genotyped_ids; core, …)` to rounding.
+  Memory grows with ``n_c n_2`` and the nonzeros of ``H^{-1}``. On a
+  pedigree of 20,000 animals with 10,000 genotyped, 2,000 core animals
+  and 5,000 loci (8 threads): 11.4 s against 16.2 s for `grm` and the
+  dense `hinv`, 38.7 million nonzeros against 100 million.
+
+### Changed
+- `apy_ginv` assembles its result from blocks with preallocated
+  triplets (same values).
+
 ## [v0.7.4] - 2026-11-18
 
 ### Added

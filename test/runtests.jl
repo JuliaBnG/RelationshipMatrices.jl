@@ -269,6 +269,72 @@ using Aqua
         @test_throws ArgumentError hinv(ped, G, [4, 6, 7, 9, 11])
     end
 
+    @testset "hinv_apy: APY H⁻¹ from genotypes, no dense n₂ × n₂" begin
+        rng = MersenneTwister(20261118)
+        N = 400
+        sire = [i <= 40 ? 0 : rand(rng, 1:i-1) for i = 1:N]
+        dam = [i <= 40 ? 0 : rand(rng, 1:i-1) for i = 1:N]
+        ped = DataFrame(sire = sire, dam = dam)
+        gen = sort(randperm(rng, N)[1:180])                 # genotyped, among old and young
+        nlc = 500
+        p = rand(rng, nlc) .* 0.8 .+ 0.1
+        p[1:5] .= [0.0, 1.0, 0.0, 1.0, 0.5]                 # monomorphic in the base: skipped
+        # unlinked loci dropped through the pedigree from founder alleles at
+        # frequencies p, so that G estimates A (as tuning assumes)
+        hap = falses(nlc, 2N)
+        for i = 1:N, h = 1:2
+            par = h == 1 ? sire[i] : dam[i]
+            hap[:, 2i-2+h] = par == 0 ? rand(rng, nlc) .< p :
+                             ifelse.(rand(rng, Bool, nlc), hap[:, 2par-1], hap[:, 2par])
+        end
+        dosage = Int8.(hap[:, 1:2:end] .+ hap[:, 2:2:end])
+        gt = dosage[:, gen]
+        core = randperm(rng, length(gen))[1:70]
+        # equal to the dense hinv with APY, with and without tuning, τ/ω, both codings
+        for (method, delta, tau, omega, tune) in ((:vanraden1, 0.05, 1.0, 1.0, false),
+            (:vanraden1, 0.1, 1.3, 0.6, true), (:vanraden2, 0.05, 1.0, 1.0, true), (:vanraden1, 0.0, 1.0, 1.0, false))
+            Hd = hinv(ped, grm(gt, p; method), gen; core, delta, tau, omega, tune)
+            Ha = hinv_apy(ped, gt, p, gen, core; method, delta, tau, omega, tune)
+            @test Ha isa SparseMatrixCSC{Float64,Int32}
+            @test Matrix(Ha) ≈ Matrix(Hd) atol = 1e-10
+            @test Ha == Ha'
+        end
+        # the Schur complement of A⁻¹ is A₂₂⁻¹; with every animal genotyped it is A⁻¹
+        Ai = SparseMatrixCSC{Float64,Int}(ainv(ped))
+        @test Matrix(RelationshipMatrices._a22inv_schur(Ai, gen)) ≈ inv(nrm(ped, gen))
+        @test RelationshipMatrices._a22inv_schur(Ai, collect(1:N)) == Ai
+        # the core rows of A₂₂ and v'Av by Colleau
+        D, K = RelationshipMatrices._colleau_d(ped)
+        Ac, vAv = RelationshipMatrices._colleau_rows(ped, D, gen[core], gen)
+        A22 = nrm(ped, gen)
+        @test Ac ≈ A22[core, :] && vAv ≈ sum(A22) && K[gen] ≈ diag(A22)
+        # the refactored apy_ginv is unchanged in value
+        G = grm(gt, p; delta = 0.05)
+        nc = setdiff(1:length(gen), core)
+        Gi = Matrix(apy_ginv(G, core))
+        Pn = G[core, core] \ G[core, nc]
+        Mn = Diagonal([G[j, j] - dot(G[core, j], Pn[:, k]) for (k, j) in enumerate(nc)])
+        @test Gi[nc, nc] ≈ inv(Mn) && Gi[core, nc] ≈ -Pn / Mn
+        # sparser than the dense block when ungenotyped ancestors are old:
+        # genotypes only on the last 100 animals (unrelated founders 1:40)
+        young = collect(301:400)
+        gy = dosage[:, young]
+        Hy = hinv_apy(ped, gy, p, young, 1:30; delta = 0.05)
+        @test nnz(Hy) < nnz(ainv(ped)) + 100^2
+        # errors
+        @test_throws ArgumentError hinv_apy(ped, gt, p, gen, [1, 1])
+        @test_throws ArgumentError hinv_apy(ped, gt, p, gen, [0, 1])
+        @test_throws ArgumentError hinv_apy(ped, gt, p, gen, core; method = :dominance)
+        @test_throws ArgumentError hinv_apy(ped, gt, p, gen, core; delta = 1.0)
+        @test_throws DimensionMismatch hinv_apy(ped, gt, p[1:10], gen, core)
+        @test_throws DimensionMismatch hinv_apy(ped, gt, p, gen[1:10], core)
+        bad = copy(gt); bad[1, 1] = 3
+        @test_throws ArgumentError hinv_apy(ped, bad, p, gen, core)
+        # a core too small for a singular G is refused (more animals than loci)
+        g2 = Int8.(rand(rng, 0:2, 20, length(gen)))
+        @test_throws ArgumentError hinv_apy(ped, g2, fill(0.5, 20), gen, 1:30)
+    end
+
     @testset "renumber" begin
         r = renumber(["calf", "cow", "bull"], ["bull", "", ""], ["cow", "", "granny"])
         # granny is the dam of bull, so she comes first

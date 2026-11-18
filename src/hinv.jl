@@ -32,7 +32,7 @@ where:
 - `delta::Real`: Blending weight \$\\delta \\in [0, 1)\$ with \$A_{22}\$ (default: `0.0`).
 - `tau::Real`, `omega::Real`: Scaling of the genomic and pedigree parts, \$H^{-1} = A^{-1} + \\mathrm{diag}(0,\\ \\tau (G^*)^{-1} - \\omega A_{22}^{-1})\$ (defaults `1.0`; Tsuruta et al., 2011). `tau > 0`, `omega ≤ 1`.
 - `tune::Bool`: Tune `G` to the scale of \$A_{22}\$ with [`tune_grm`](@ref) before blending (default: `false`).
-- `core`: Indices **within the genotyped set** (`1:n₂`) of the core animals; \$(G^*)^{-1}\$ is then the APY inverse from [`apy_ginv`](@ref) (default: `nothing`, the exact inverse).
+- `core`: Indices **within the genotyped set** (`1:n₂`) of the core animals; \$(G^*)^{-1}\$ is then the APY inverse from [`apy_ginv`](@ref) (default: `nothing`, the exact inverse). This form still takes and forms dense \$n_2 \times n_2\$ matrices; [`hinv_apy`](@ref) gives the same result from the genotypes without them.
 - `T::Type{<:AbstractFloat}`: Floating point type for inversions and output (default: `Float64`).
 
 # Returns
